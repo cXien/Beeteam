@@ -264,3 +264,37 @@
   .admin-stats-grid { grid-template-columns: repeat(2, 1fr); }
   .dash-tab span    { display: none; }
 }
+
+/* ==================== TICKETS ==================== */
+.admin-ticket-row {
+  background: var(--bg4); border: 1px solid var(--border);
+  border-radius: 12px; padding: 18px 20px; margin-bottom: 12px;
+  transition: border-color .2s;
+}
+.admin-ticket-row:hover { border-color: rgba(168,85,247,0.4); }
+.admin-ticket-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.admin-ticket-nick {
+  font-family: 'Syne', sans-serif; font-weight: 700;
+  font-size: 0.9rem; color: var(--white);
+}
+.admin-ticket-type {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; padding: 2px 8px; border-radius: 6px;
+  background: rgba(168,85,247,0.15); color: var(--orange);
+  border: 1px solid rgba(168,85,247,0.25);
+}
+.admin-ticket-status {
+  font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.admin-ticket-subject {
+  font-family: 'Syne', sans-serif; font-weight: 700;
+  font-size: 0.88rem; color: var(--white); margin-bottom: 6px;
+}
+.admin-ticket-desc {
+  font-size: 0.85rem; color: var(--text-dim); line-height: 1.6;
+  white-space: pre-wrap; word-break: break-word;
+}
