@@ -1,6 +1,9 @@
-
+// ============================================================
+//  BEETEAM - server.js v3
+//  Express + Discord OAuth2 + Supabase DB + Admin Panel API
+// ============================================================
 const express  = require('express');
-const session  = require('express-session');
+const cookieSession = require('cookie-session');
 const path     = require('path');
 const fetch    = (...a) => import('node-fetch').then(({default:f}) => f(...a));
 const { createClient } = require('@supabase/supabase-js');
@@ -23,7 +26,7 @@ const CFG = {
 };
 
 // ============================================================
-// SUPABASE CLIENT (service_role key - full access)
+// SUPABASE CLIENT
 // ============================================================
 let supabase = null;
 if (CFG.SUPABASE_URL && CFG.SUPABASE_SERVICE_KEY) {
@@ -35,7 +38,7 @@ if (CFG.SUPABASE_URL && CFG.SUPABASE_SERVICE_KEY) {
   console.warn('Supabase not configured - using in-memory fallback');
 }
 
-// In-memory fallback (dev mode / no Supabase)
+// In-memory fallback
 const mem = {
   chat: [], members: [], ranks: [
     { id:1, name:'Bee Worker',  name_highlight:'Bee',   price:'$2.99',  featured:false, perks:['Prefix [Worker]','Kit inicio','x2 /sethome','Color nombre'], sort_order:1, active:true },
@@ -44,7 +47,7 @@ const mem = {
     { id:4, name:'Royal Elite', name_highlight:'Royal', price:'$24.99', featured:false, perks:['Todo Queen','Comandos admin','Badge Discord','Kit mensual'], sort_order:4, active:true },
   ],
   gallery: [], events: [{ id:1, nombre:'Torneo PvP Mensual', descripcion:'', fecha: new Date(Date.now()+7*86400000).toISOString(), activo:true }],
-  config: {}, banned: [], adminLog: [],
+  config: {}, banned: [], adminLog: [], tickets: [],
 };
 
 // ============================================================
@@ -208,6 +211,32 @@ const db = {
     if (supabase) { const {data} = await supabase.from('admin_log').select('*').order('created_at',{ascending:false}).limit(limit); return data||[]; }
     return mem.adminLog.slice(0, limit);
   },
+  // TICKETS
+  async addTicket(t) {
+    if (supabase) {
+      const {data} = await supabase.from('tickets').insert(t).select().single();
+      return data;
+    }
+    var nt = Object.assign({}, t, {id: Date.now(), status:'pending', created_at: new Date().toISOString()});
+    mem.tickets.push(nt);
+    return nt;
+  },
+  async getTickets() {
+    if (supabase) {
+      const {data} = await supabase.from('tickets').select('*').order('created_at',{ascending:false});
+      return data || [];
+    }
+    return mem.tickets.slice().reverse();
+  },
+  async updateTicketStatus(id, status) {
+    if (supabase) { await supabase.from('tickets').update({status}).eq('id',id); return; }
+    var t = mem.tickets.find(function(t){return String(t.id)===String(id);});
+    if (t) t.status = status;
+  },
+  async deleteTicket(id) {
+    if (supabase) { await supabase.from('tickets').delete().eq('id',id); return; }
+    mem.tickets = mem.tickets.filter(function(t){return String(t.id)!==String(id);});
+  },
 };
 
 // ============================================================
@@ -217,11 +246,13 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname)));
 
-app.use(session({
+app.use(cookieSession({
+  name: 'session',
   secret: CFG.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV==='production', httpOnly: true, maxAge: 7*24*60*60*1000 }
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  secure: process.env.NODE_ENV === 'production',
+  httpOnly: true,
+  sameSite: 'lax'
 }));
 
 function requireAuth(req,res,next)  { return req.session.user ? next() : res.status(401).json({error:'Login required'}); }
@@ -248,7 +279,17 @@ app.get('/api/auth/discord/callback', async function(req,res) {
   if (!code) return res.redirect('/?auth=error');
   var redir = CFG.BASE_URL + '/api/auth/discord/callback';
   try {
-    var tokRes = await fetch('https://discord.com/api/oauth2/token', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({client_id:CFG.DISCORD_CLIENT_ID, client_secret:CFG.DISCORD_CLIENT_SECRET, grant_type:'authorization_code', code:code, redirect_uri:redir})});
+    var tokRes = await fetch('https://discord.com/api/oauth2/token', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({
+        client_id:CFG.DISCORD_CLIENT_ID,
+        client_secret:CFG.DISCORD_CLIENT_SECRET,
+        grant_type:'authorization_code',
+        code:code,
+        redirect_uri:redir
+      })
+    });
     var tok = await tokRes.json();
     if (!tok.access_token) throw new Error('No token');
     var u = await (await fetch('https://discord.com/api/users/@me', {headers:{Authorization:'Bearer '+tok.access_token}})).json();
@@ -259,16 +300,27 @@ app.get('/api/auth/discord/callback', async function(req,res) {
       isAdmin = CFG.ADMIN_ROLE_IDS.some(function(r){return roles.includes(r);});
     } catch(e2) {}
     req.session.user = {
-      id: u.id, username: u.username,
+      id: u.id,
+      username: u.username,
       avatar: u.avatar ? 'https://cdn.discordapp.com/avatars/'+u.id+'/'+u.avatar+'.png' : 'https://cdn.discordapp.com/embed/avatars/'+(parseInt(u.discriminator||'0')%5)+'.png',
-      isAdmin: isAdmin, roles: roles,
+      isAdmin: isAdmin,
+      roles: roles,
     };
     res.redirect('/');
-  } catch(e) { console.error('[Auth]', e.message); res.redirect('/?auth=error'); }
+  } catch(e) {
+    console.error('[Auth]', e.message);
+    res.redirect('/?auth=error');
+  }
 });
 
-app.post('/api/auth/logout', function(req,res) { req.session.destroy(); res.json({ok:true}); });
-app.get('/api/me', function(req,res) { return req.session.user ? res.json(req.session.user) : res.status(401).json({error:'Not authenticated'}); });
+app.post('/api/auth/logout', function(req,res) {
+  req.session = null;
+  res.json({ok:true});
+});
+
+app.get('/api/me', function(req,res) {
+  return req.session.user ? res.json(req.session.user) : res.status(401).json({error:'Not authenticated'});
+});
 
 // ============================================================
 // PUBLIC API
@@ -283,6 +335,22 @@ app.get('/api/mc-status', async function(req,res) {
   catch(e) { res.json({online:false}); }
 });
 
+// TICKETS PUBLIC
+app.post('/api/tickets', async function(req,res) {
+  var b = req.body;
+  if (!b.nick || !b.type || !b.subject || !b.description) return res.status(400).json({error:'Faltan campos'});
+  try {
+    var t = await db.addTicket({
+      nick: b.nick.trim().slice(0,50),
+      type: b.type.trim().slice(0,100),
+      subject: b.subject.trim().slice(0,200),
+      description: b.description.trim().slice(0,2000),
+      status: 'pending'
+    });
+    res.json(t);
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
 // ============================================================
 // CHAT
 // ============================================================
@@ -293,17 +361,22 @@ app.post('/api/chat', requireAuth, checkBan, async function(req,res) {
   if (!content || typeof content !== 'string') return res.status(400).json({error:'Invalid'});
   var clean = content.trim().slice(0,300);
   if (!clean) return res.status(400).json({error:'Empty'});
-  var msg = await db.addChat({user_id:req.session.user.id, username:req.session.user.username, avatar:req.session.user.avatar, role:req.session.user.isAdmin?'owner':null, content:clean});
+  var msg = await db.addChat({
+    user_id:req.session.user.id,
+    username:req.session.user.username,
+    avatar:req.session.user.avatar,
+    role:req.session.user.isAdmin?'owner':null,
+    content:clean
+  });
   res.json(msg);
 });
 
 // ============================================================
 // ADMIN API
 // ============================================================
-
 app.get('/api/admin/stats', requireAdmin, async function(req,res) {
-  var results = await Promise.all([db.getAllChat(1000), db.getMembers(), db.getGallery(), db.getBans(), db.getLog(10)]);
-  var chat=results[0], members=results[1], gallery=results[2], bans=results[3], log=results[4];
+  var results = await Promise.all([db.getAllChat(1000), db.getMembers(), db.getGallery(), db.getBans(), db.getLog(10), db.getTickets()]);
+  var chat=results[0], members=results[1], gallery=results[2], bans=results[3], log=results[4], tickets=results[5];
   var uniqueUsers = new Set(chat.map(function(m){return m.user_id;})).size;
   res.json({
     totalChatMessages: chat.filter(function(m){return !m.deleted;}).length,
@@ -312,6 +385,7 @@ app.get('/api/admin/stats', requireAdmin, async function(req,res) {
     teamMembers: members.length,
     galleryPics: gallery.length,
     bannedUsers: bans.length,
+    pendingTickets: tickets.filter(function(t){return t.status==='pending';}).length,
     recentLog: log,
   });
 });
@@ -400,6 +474,19 @@ app.delete('/api/admin/bans/:userId', requireAdmin, async function(req,res) {
 });
 
 app.get('/api/admin/log', requireAdmin, async function(req,res) { res.json(await db.getLog(200)); });
+
+// TICKETS ADMIN
+app.get('/api/admin/tickets', requireAdmin, async function(req,res) { res.json(await db.getTickets()); });
+app.put('/api/admin/tickets/:id', requireAdmin, async function(req,res) {
+  await db.updateTicketStatus(req.params.id, req.body.status);
+  await db.log(req.session.user.id, req.session.user.username, 'update_ticket', req.params.id, req.body.status);
+  res.json({ok:true});
+});
+app.delete('/api/admin/tickets/:id', requireAdmin, async function(req,res) {
+  await db.deleteTicket(req.params.id);
+  await db.log(req.session.user.id, req.session.user.username, 'delete_ticket', req.params.id);
+  res.json({ok:true});
+});
 
 // ============================================================
 // FALLBACK SPA
