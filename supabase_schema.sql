@@ -1,8 +1,4 @@
--- ============================================================
---  BEETEAM — Supabase Schema
---  Ejecuta este SQL en el SQL Editor de tu proyecto Supabase
---  https://app.supabase.com → SQL Editor → New Query → Pega esto
--- ============================================================
+
 
 -- CHAT MESSAGES
 create table if not exists chat_messages (
