@@ -206,9 +206,9 @@
     <p class="section-sub">¿Problemas? Estamos aquí.</p>
   </div>
   <div class="support-grid">
-    <div class="support-card reveal"><div class="support-icon">💬</div><h3>Discord</h3><p>Únete para recibir ayuda rápida de la comunidad y el staff.</p><a href="https://discord.gg/TU_INVITE" target="_blank" class="btn-primary">Unirse al Discord</a></div>
-    <div class="support-card reveal"><div class="support-icon">🎫</div><h3>Crear Ticket</h3><p>¿Problema con tu rango o cuenta? Respondemos en menos de 24h.</p><button class="btn-outline" onclick="document.getElementById('ticketSection').scrollIntoView({behavior:'smooth'})">Crear Ticket</button></div>
-    <div class="support-card reveal"><div class="support-icon">🏷️</div><h3>Comprar Rango</h3><p>Todos los rangos se gestionan por Discord. Abre un ticket con tu nick.</p><a href="#tienda" class="btn-outline">Ver Rangos</a></div>
+    <div class="support-card reveal"><div class="support-icon"></div><h3>Discord</h3><p>Únete para recibir ayuda rápida de la comunidad y el staff.</p><a href="https://discord.gg/TU_INVITE" target="_blank" class="btn-primary">Unirse al Discord</a></div>
+    <div class="support-card reveal"><div class="support-icon"></div><h3>Crear Ticket</h3><p>¿Problema con tu rango o cuenta? Respondemos en menos de 24h.</p><button class="btn-outline" onclick="document.getElementById('ticketSection').scrollIntoView({behavior:'smooth'})">Crear Ticket</button></div>
+    <div class="support-card reveal"><div class="support-icon"></div><h3>Comprar Rango</h3><p>Todos los rangos se gestionan por Discord. Abre un ticket con tu nick.</p><a href="#tienda" class="btn-outline">Ver Rangos</a></div>
   </div>
   <div id="ticketSection" style="margin-top:48px">
     <div class="ticket-form reveal">
@@ -240,15 +240,15 @@
     <div class="dashboard-header">
       <h3>🐝 Dashboard BeeTeam</h3>
       <div class="dashboard-tabs">
-        <button class="dash-tab active"  onclick="switchTab('overview',this)">📊 Resumen</button>
-        <button class="dash-tab"         onclick="switchTab('chat',this)">💬 Chat</button>
-        <button class="dash-tab"         onclick="switchTab('miembros',this)">👑 Equipo</button>
-        <button class="dash-tab"         onclick="switchTab('rangos',this)">🏷️ Rangos</button>
-        <button class="dash-tab"         onclick="switchTab('evento',this)">🎉 Evento</button>
-        <button class="dash-tab"         onclick="switchTab('galeria',this)">🖼️ Galería</button>
-        <button class="dash-tab"         onclick="switchTab('bans',this)">🚫 Bans</button>
-        <button class="dash-tab"         onclick="switchTab('log',this)">📋 Log</button>
-        <button class="dash-tab"         onclick="switchTab('logo',this)">🎨 Apariencia</button>
+        <button class="dash-tab active"  onclick="switchTab('overview',this)"> Resumen</button>
+        <button class="dash-tab"         onclick="switchTab('chat',this)"> Chat</button>
+        <button class="dash-tab"         onclick="switchTab('miembros',this)"> Equipo</button>
+        <button class="dash-tab"         onclick="switchTab('rangos',this)"> Rangos</button>
+        <button class="dash-tab"         onclick="switchTab('evento',this)"> Evento</button>
+        <button class="dash-tab"         onclick="switchTab('galeria',this)"> Galería</button>
+        <button class="dash-tab"         onclick="switchTab('bans',this)"> Bans</button>
+        <button class="dash-tab"         onclick="switchTab('log',this)"> Log</button>
+        <button class="dash-tab"         onclick="switchTab('logo',this)"> Apariencia</button>
       </div>
     </div>
 
@@ -315,7 +315,7 @@
         <div class="form-row">
           <div class="form-group"><label>Fecha y hora del evento</label><input type="datetime-local" id="eventoFecha"></div>
           <div class="form-group"><label>Estado</label>
-            <select id="eventoActivo"><option value="1">✅ Activo (mostrar contador)</option><option value="0">❌ Oculto</option></select>
+            <select id="eventoActivo"><option value="1"> Activo (mostrar contador)</option><option value="0"> Oculto</option></select>
           </div>
         </div>
         <button class="btn-primary" onclick="saveEvento()">Guardar evento</button>
@@ -362,13 +362,13 @@
             <div class="form-group"><label>Discord User ID</label><input type="text" id="banUserId" placeholder="123456789012345678"></div>
             <div class="form-group"><label>Nombre de usuario</label><input type="text" id="banUsername" placeholder="Usuario#1234"></div>
             <div class="form-group"><label>Razón</label><input type="text" id="banReason" placeholder="Ej: Spam en el chat"></div>
-            <button class="btn-primary" style="background:rgba(255,80,80,0.85);padding:10px 20px;font-size:0.85rem" onclick="adminBanManual()">🚫 Banear</button>
+            <button class="btn-primary" style="background:rgba(255,80,80,0.85);padding:10px 20px;font-size:0.85rem" onclick="adminBanManual()"> Banear</button>
           </div>
         </div>
         <div style="flex:2;min-width:300px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
             <h4 style="font-family:'Syne',sans-serif;color:var(--white)">Usuarios baneados</h4>
-            <button class="btn-outline" style="font-size:0.83rem;padding:8px 16px" onclick="loadAdminBans()">🔄 Actualizar</button>
+            <button class="btn-outline" style="font-size:0.83rem;padding:8px 16px" onclick="loadAdminBans()"> Actualizar</button>
           </div>
           <div id="adminBansList"></div>
         </div>
@@ -382,7 +382,7 @@
           <h4 style="font-family:'Syne',sans-serif;color:var(--white);margin-bottom:4px">Log de Actividad Admin</h4>
           <p style="font-size:0.85rem;color:var(--text-dim)">Registro completo de todas las acciones realizadas por admins.</p>
         </div>
-        <button class="btn-outline" style="font-size:0.83rem;padding:8px 16px" onclick="loadAdminLog()">🔄 Actualizar</button>
+        <button class="btn-outline" style="font-size:0.83rem;padding:8px 16px" onclick="loadAdminLog()"> Actualizar</button>
       </div>
       <div id="adminLogList"></div>
     </div>
@@ -438,7 +438,7 @@
     </div>
   </div>
   <div class="footer-bottom">
-    <p>© 2025 <strong>BeeTeam</strong>. Todos los derechos reservados.</p>
+    <p>© 2026 <strong>BeeTeam</strong>. Todos los derechos reservados.</p>
     <p style="font-size:0.75rem">No afiliado con Mojang / Microsoft.</p>
   </div>
 </footer>
