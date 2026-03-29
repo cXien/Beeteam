@@ -7,16 +7,16 @@
 <meta name="description" content="El servidor de Minecraft más épico. Únete a BeeTeam.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="public/css/main.css">
-<link rel="stylesheet" href="public/css/admin.css">
+<link rel="stylesheet" href="/public/css/main.css">
+<link rel="stylesheet" href="/public/css/admin.css">
 </head>
 <body>
 
 <div id="toastContainer"></div>
 
 <div id="easterEgg">
-  <div class="bee-swarm">🐝🐝🐝🐝🐝</div>
-  <h2>¡Secreto desbloqueado!</h2>
+  <div class="bee-swarm">* * * * *</div>
+  <h2>Secreto desbloqueado!</h2>
   <p>Eres uno de los nuestros, pro.</p>
   <button class="btn-primary" onclick="document.getElementById('easterEgg').classList.remove('show')">Cerrar</button>
 </div>
@@ -24,7 +24,7 @@
 <div class="hex-bg"></div>
 <canvas id="hexCanvas" class="hero-hex-canvas"></canvas>
 
-<!-- ========== NAV ========== -->
+<!-- NAV -->
 <nav id="mainNav">
   <a href="#hero" class="nav-logo">
     <img id="navLogoImg" src="" alt="logo" style="display:none;width:32px;height:32px;border-radius:7px;object-fit:cover">
@@ -51,16 +51,16 @@
       </div>
     </div>
     <button class="nav-dash-btn" id="dashBtn" style="display:none" onclick="toggleDashboard()">
-      ⚙ Dashboard
+      Dashboard
     </button>
     <div class="nav-ip" id="ipBtn" onclick="copyIP()">
-      🔗 beeteam.club
-      <div class="ip-copy-toast">¡Copiado!</div>
+      beeteam.club
+      <div class="ip-copy-toast">Copiado!</div>
     </div>
   </div>
 </nav>
 
-<!-- ========== HERO ========== -->
+<!-- HERO -->
 <section id="hero">
   <div class="hero-video-bg" id="heroVideoBg">
     <video id="heroBgVideo" autoplay muted loop playsinline style="display:none"></video>
@@ -85,7 +85,7 @@
 
 <div class="divider"></div>
 
-<!-- ========== COUNTDOWN ========== -->
+<!-- COUNTDOWN -->
 <div id="countdown-section" style="display:none">
   <div class="section-label" style="text-align:center">Próximo evento</div>
   <div class="countdown-title" id="countdownTitle">Torneo de PvP Mensual</div>
@@ -100,7 +100,7 @@
 
 <div class="divider"></div>
 
-<!-- ========== TIENDA ========== -->
+<!-- TIENDA -->
 <section id="tienda">
   <div class="section-header reveal">
     <div class="section-label">Tienda</div>
@@ -112,7 +112,7 @@
 
 <div class="divider"></div>
 
-<!-- ========== TEAM ========== -->
+<!-- TEAM -->
 <section id="team">
   <div class="section-header reveal">
     <div class="section-label">Equipo</div>
@@ -124,7 +124,7 @@
 
 <div class="divider"></div>
 
-<!-- ========== COMUNIDAD CHAT ========== -->
+<!-- COMUNIDAD CHAT -->
 <section id="comunidad">
   <div class="section-header reveal" style="text-align:center;max-width:600px;margin:0 auto 48px">
     <div class="section-label">Comunidad</div>
@@ -132,7 +132,7 @@
     <p class="section-sub" style="margin:0 auto">Necesitas iniciar sesión con Discord para participar.</p>
   </div>
   <div id="chatLoginWall" class="chat-login-wall reveal">
-    <div class="chat-lock-icon">🔒</div>
+    <div class="chat-lock-icon">[ ]</div>
     <h3>Inicia sesión para chatear</h3>
     <p>Conéctate con Discord para unirte a la conversación.</p>
     <a href="/api/auth/discord" class="btn-primary">Entrar con Discord</a>
@@ -142,14 +142,14 @@
     <div class="chat-input-row">
       <img id="chatUserAvatar" src="" alt="" class="chat-avatar-small">
       <input type="text" id="chatInput" class="chat-input" placeholder="Escribe un mensaje..." maxlength="300" onkeydown="if(event.key==='Enter')sendChatMessage()">
-      <button class="chat-send-btn" onclick="sendChatMessage()">➤</button>
+      <button class="chat-send-btn" onclick="sendChatMessage()">Enviar</button>
     </div>
   </div>
 </section>
 
 <div class="divider"></div>
 
-<!-- ========== TESTIMONIOS ========== -->
+<!-- TESTIMONIOS -->
 <section id="testimonios" style="overflow:hidden;padding:80px 0;background:var(--bg)">
   <div class="section-header reveal" style="text-align:center;max-width:600px;margin:0 auto 48px;padding:0 5vw">
     <div class="section-label">Comunidad</div>
@@ -162,7 +162,7 @@
 
 <div class="divider"></div>
 
-<!-- ========== PICS ========== -->
+<!-- PICS -->
 <section id="pics">
   <div class="section-header reveal">
     <div class="section-label">Galería</div>
@@ -178,16 +178,16 @@
   </div>
   <div class="pics-grid" id="picsGrid"></div>
   <div class="pics-empty" id="picsEmpty">
-    <div class="empty-icon">📷</div>
+    <div class="empty-icon">[ ]</div>
     <p>Aún no hay fotos en esta categoría.</p>
   </div>
 </section>
 
 <div class="lightbox-overlay" id="lightboxOverlay" onclick="closeLightboxOutside(event)">
   <div class="lightbox-inner">
-    <button class="lightbox-close" onclick="closeLightbox()">✕</button>
-    <button class="lightbox-nav lightbox-prev" onclick="lightboxNav(-1)">←</button>
-    <button class="lightbox-nav lightbox-next" onclick="lightboxNav(1)">→</button>
+    <button class="lightbox-close" onclick="closeLightbox()">X</button>
+    <button class="lightbox-nav lightbox-prev" onclick="lightboxNav(-1)">&larr;</button>
+    <button class="lightbox-nav lightbox-next" onclick="lightboxNav(1)">&rarr;</button>
     <img id="lightboxImg" src="" alt="">
     <div class="lightbox-info">
       <span class="lightbox-title" id="lightboxTitle"></span>
@@ -198,16 +198,16 @@
 
 <div class="divider"></div>
 
-<!-- ========== SOPORTE ========== -->
+<!-- SOPORTE -->
 <section id="soporte">
   <div class="section-header reveal">
     <div class="section-label">Soporte</div>
     <h2 class="section-title">Centro de <span>Soporte</span></h2>
-    <p class="section-sub">¿Problemas? Estamos aquí.</p>
+    <p class="section-sub">Problemas? Estamos aquí.</p>
   </div>
   <div class="support-grid">
     <div class="support-card reveal"><div class="support-icon"></div><h3>Discord</h3><p>Únete para recibir ayuda rápida de la comunidad y el staff.</p><a href="https://discord.gg/TU_INVITE" target="_blank" class="btn-primary">Unirse al Discord</a></div>
-    <div class="support-card reveal"><div class="support-icon"></div><h3>Crear Ticket</h3><p>¿Problema con tu rango o cuenta? Respondemos en menos de 24h.</p><button class="btn-outline" onclick="document.getElementById('ticketSection').scrollIntoView({behavior:'smooth'})">Crear Ticket</button></div>
+    <div class="support-card reveal"><div class="support-icon"></div><h3>Crear Ticket</h3><p>Problema con tu rango o cuenta? Respondemos en menos de 24h.</p><button class="btn-outline" onclick="document.getElementById('ticketSection').scrollIntoView({behavior:'smooth'})">Crear Ticket</button></div>
     <div class="support-card reveal"><div class="support-icon"></div><h3>Comprar Rango</h3><p>Todos los rangos se gestionan por Discord. Abre un ticket con tu nick.</p><a href="#tienda" class="btn-outline">Ver Rangos</a></div>
   </div>
   <div id="ticketSection" style="margin-top:48px">
@@ -229,7 +229,7 @@
 
 <div class="divider"></div>
 
-<!-- ========== DASHBOARD ADMIN ========== -->
+<!-- DASHBOARD ADMIN -->
 <section id="dashboard-section" style="display:none;background:var(--bg2);padding:80px 5vw">
   <div class="section-header">
     <div class="section-label">Admin</div>
@@ -238,17 +238,17 @@
   </div>
   <div class="dashboard-wrapper">
     <div class="dashboard-header">
-      <h3>🐝 Dashboard BeeTeam</h3>
+      <h3>Dashboard BeeTeam</h3>
       <div class="dashboard-tabs">
-        <button class="dash-tab active"  onclick="switchTab('overview',this)"> Resumen</button>
-        <button class="dash-tab"         onclick="switchTab('chat',this)"> Chat</button>
-        <button class="dash-tab"         onclick="switchTab('miembros',this)"> Equipo</button>
-        <button class="dash-tab"         onclick="switchTab('rangos',this)"> Rangos</button>
-        <button class="dash-tab"         onclick="switchTab('evento',this)"> Evento</button>
-        <button class="dash-tab"         onclick="switchTab('galeria',this)"> Galería</button>
-        <button class="dash-tab"         onclick="switchTab('bans',this)"> Bans</button>
-        <button class="dash-tab"         onclick="switchTab('log',this)"> Log</button>
-        <button class="dash-tab"         onclick="switchTab('logo',this)"> Apariencia</button>
+        <button class="dash-tab active"  onclick="switchTab('overview',this)">Resumen</button>
+        <button class="dash-tab"         onclick="switchTab('chat',this)">Chat</button>
+        <button class="dash-tab"         onclick="switchTab('miembros',this)">Equipo</button>
+        <button class="dash-tab"         onclick="switchTab('rangos',this)">Rangos</button>
+        <button class="dash-tab"         onclick="switchTab('evento',this)">Evento</button>
+        <button class="dash-tab"         onclick="switchTab('galeria',this)">Galería</button>
+        <button class="dash-tab"         onclick="switchTab('bans',this)">Bans</button>
+        <button class="dash-tab"         onclick="switchTab('log',this)">Log</button>
+        <button class="dash-tab"         onclick="switchTab('logo',this)">Apariencia</button>
       </div>
     </div>
 
@@ -264,7 +264,7 @@
           <h4 style="font-family:'Syne',sans-serif;color:var(--white);margin-bottom:4px">Moderación de Chat</h4>
           <p style="font-size:0.85rem;color:var(--text-dim)">Borrar mensajes individuales o banear usuarios directamente desde aquí.</p>
         </div>
-        <button class="btn-outline" style="font-size:0.83rem;padding:8px 16px" onclick="loadAdminChat()">🔄 Actualizar</button>
+        <button class="btn-outline" style="font-size:0.83rem;padding:8px 16px" onclick="loadAdminChat()">Actualizar</button>
       </div>
       <div id="adminChatList" class="admin-chat-list"></div>
     </div>
@@ -311,11 +311,11 @@
       <div class="evento-form">
         <input type="hidden" id="eventoId">
         <div class="form-group"><label>Nombre del evento</label><input type="text" id="eventoNombre" placeholder="Ej: Torneo de PvP Mensual"></div>
-        <div class="form-group"><label>Descripción (opcional)</label><input type="text" id="eventoDesc" placeholder="Ej: ¡Premios para los 3 primeros!"></div>
+        <div class="form-group"><label>Descripción (opcional)</label><input type="text" id="eventoDesc" placeholder="Ej: Premios para los 3 primeros!"></div>
         <div class="form-row">
           <div class="form-group"><label>Fecha y hora del evento</label><input type="datetime-local" id="eventoFecha"></div>
           <div class="form-group"><label>Estado</label>
-            <select id="eventoActivo"><option value="1"> Activo (mostrar contador)</option><option value="0"> Oculto</option></select>
+            <select id="eventoActivo"><option value="1">Activo (mostrar contador)</option><option value="0">Oculto</option></select>
           </div>
         </div>
         <button class="btn-primary" onclick="saveEvento()">Guardar evento</button>
@@ -328,7 +328,7 @@
       <p class="dash-desc">Sube fotos del servidor. Se guardan en la base de datos permanentemente.</p>
       <div class="pics-upload-zone">
         <input type="file" accept="image/*" multiple onchange="handlePicsSelect(this)">
-        <div class="upload-icon-big">📸</div>
+        <div class="upload-icon-big">+</div>
         <p><strong>Haz clic o arrastra</strong> las fotos aquí<br><span>PNG, JPG, WEBP · Varias a la vez</span></p>
       </div>
       <div id="picsPending" class="pics-dash-pending"></div>
@@ -362,13 +362,13 @@
             <div class="form-group"><label>Discord User ID</label><input type="text" id="banUserId" placeholder="123456789012345678"></div>
             <div class="form-group"><label>Nombre de usuario</label><input type="text" id="banUsername" placeholder="Usuario#1234"></div>
             <div class="form-group"><label>Razón</label><input type="text" id="banReason" placeholder="Ej: Spam en el chat"></div>
-            <button class="btn-primary" style="background:rgba(255,80,80,0.85);padding:10px 20px;font-size:0.85rem" onclick="adminBanManual()"> Banear</button>
+            <button class="btn-primary" style="background:rgba(255,80,80,0.85);padding:10px 20px;font-size:0.85rem" onclick="adminBanManual()">Banear</button>
           </div>
         </div>
         <div style="flex:2;min-width:300px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
             <h4 style="font-family:'Syne',sans-serif;color:var(--white)">Usuarios baneados</h4>
-            <button class="btn-outline" style="font-size:0.83rem;padding:8px 16px" onclick="loadAdminBans()"> Actualizar</button>
+            <button class="btn-outline" style="font-size:0.83rem;padding:8px 16px" onclick="loadAdminBans()">Actualizar</button>
           </div>
           <div id="adminBansList"></div>
         </div>
@@ -382,7 +382,7 @@
           <h4 style="font-family:'Syne',sans-serif;color:var(--white);margin-bottom:4px">Log de Actividad Admin</h4>
           <p style="font-size:0.85rem;color:var(--text-dim)">Registro completo de todas las acciones realizadas por admins.</p>
         </div>
-        <button class="btn-outline" style="font-size:0.83rem;padding:8px 16px" onclick="loadAdminLog()"> Actualizar</button>
+        <button class="btn-outline" style="font-size:0.83rem;padding:8px 16px" onclick="loadAdminLog()">Actualizar</button>
       </div>
       <div id="adminLogList"></div>
     </div>
@@ -396,7 +396,7 @@
           <div class="upload-zone">
             <input type="file" accept="image/*" onchange="handleLogoUpload(this)">
             <div class="upload-icon-big">+</div>
-            <p><strong>Haz clic o arrastra</strong> el logo<br><span>PNG recomendado · Cuadrado 512×512</span></p>
+            <p><strong>Haz clic o arrastra</strong> el logo<br><span>PNG recomendado · Cuadrado 512x512</span></p>
             <div id="logoPreview" style="display:none;margin-top:16px"><img id="logoPreviewImg" src="" alt="" style="width:80px;border-radius:10px;border:1px solid var(--border)"></div>
           </div>
         </div>
@@ -417,7 +417,7 @@
   </div><!-- /dashboard-wrapper -->
 </section>
 
-<!-- ========== FOOTER ========== -->
+<!-- FOOTER -->
 <footer>
   <div class="footer-top">
     <div class="footer-brand">
@@ -443,10 +443,10 @@
   </div>
 </footer>
 
-<!-- ========== MODALS ========== -->
+<!-- MODALS -->
 <div class="modal-overlay" id="buyModal" onclick="closeBuyModal(event)">
   <div class="modal">
-    <button class="modal-close" onclick="closeBuyModal()">✕</button>
+    <button class="modal-close" onclick="closeBuyModal()">X</button>
     <h3>Comprar <span id="modalRankName" style="color:var(--orange)"></span></h3>
     <p>Para completar tu compra, únete a nuestro Discord y abre un ticket con tu nick y el rango deseado.</p>
     <div class="modal-price-box">Precio: <strong id="modalPrice"></strong><br><span>Pago vía Discord · Entrega inmediata</span></div>
@@ -455,14 +455,14 @@
 </div>
 <div class="modal-overlay" id="ticketModal" onclick="closeTicketModal(event)">
   <div class="modal" style="text-align:center">
-    <button class="modal-close" onclick="closeTicketModal()">✕</button>
+    <button class="modal-close" onclick="closeTicketModal()">X</button>
     <div class="modal-success-icon">✓</div>
-    <h3>¡Ticket enviado!</h3>
+    <h3>Ticket enviado!</h3>
     <p>Tu ticket fue registrado. Recibirás respuesta por Discord en 24 horas.</p>
     <button class="btn-primary" onclick="closeTicketModal()" style="margin-top:8px">Entendido</button>
   </div>
 </div>
 
-<script src="public/js/app.js"></script>
+<script src="/public/js/app.js"></script>
 </body>
 </html>

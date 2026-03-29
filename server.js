@@ -1,5 +1,5 @@
 // ============================================================
-//  BEETEAM — server.js v2
+//  BEETEAM - server.js v2
 //  Express + Discord OAuth2 + Supabase DB + Admin Panel API
 // ============================================================
 const express  = require('express');
@@ -26,16 +26,16 @@ const CFG = {
 };
 
 // ============================================================
-// SUPABASE CLIENT (service_role key — full access)
+// SUPABASE CLIENT (service_role key - full access)
 // ============================================================
 let supabase = null;
 if (CFG.SUPABASE_URL && CFG.SUPABASE_SERVICE_KEY) {
   supabase = createClient(CFG.SUPABASE_URL, CFG.SUPABASE_SERVICE_KEY, {
     auth: { persistSession: false }
   });
-  console.log('🗄️  Supabase connected');
+  console.log('Supabase connected');
 } else {
-  console.warn('⚠️  Supabase not configured — using in-memory fallback');
+  console.warn('Supabase not configured - using in-memory fallback');
 }
 
 // In-memory fallback (dev mode / no Supabase)
@@ -392,7 +392,7 @@ app.get('/api/admin/bans', requireAdmin, async function(req,res) { res.json(awai
 app.post('/api/admin/bans', requireAdmin, async function(req,res) {
   var b = req.body;
   if (!b.user_id) return res.status(400).json({error:'user_id requerido'});
-  await db.banUser(b.user_id, b.username||'?', b.reason||'Sin razón', req.session.user.username);
+  await db.banUser(b.user_id, b.username||'?', b.reason||'Sin razon', req.session.user.username);
   await db.log(req.session.user.id, req.session.user.username, 'ban_user', b.user_id, b.reason);
   res.json({ok:true});
 });
@@ -410,7 +410,7 @@ app.get('/api/admin/log', requireAdmin, async function(req,res) { res.json(await
 app.get('*', function(req,res) { res.sendFile(path.join(__dirname,'index.html')); });
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, function() { console.log('🐝 BeeTeam en http://localhost:'+PORT); });
+  app.listen(PORT, function() { console.log('BeeTeam running on http://localhost:'+PORT); });
 }
 
 module.exports = app;

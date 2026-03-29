@@ -1,7 +1,6 @@
 /* ============================================================
    BEETEAM — app.js v2
-   Todo carga desde la API del backend / Supabase
-   Panel admin completo con moderación, estadísticas, logs
+   Sin emojis
 ============================================================ */
 
 // ============================================================
@@ -20,7 +19,7 @@ let chatPollTimer = null;
 let siteConfig    = {};
 
 const TESTIMONIOS_DATA = [
-  { nick:'xXDragonSlayerXx', rank:'Queen Bee',   text:'El mejor servidor que he jugado. Staff siempre activo y anti-cheat impecable. ¡Me quedé desde el primer día!', stars:5 },
+  { nick:'xXDragonSlayerXx', rank:'Queen Bee',   text:'El mejor servidor que he jugado. Staff siempre activo y anti-cheat impecable. Me quedé desde el primer día!', stars:5 },
   { nick:'CraftMaster99',     rank:'Honey VIP',   text:'La comunidad es increíblemente amigable. Hice amigos de verdad y el servidor nunca tiene lag. 10/10 lo recomiendo.', stars:5 },
   { nick:'PvPQueenLara',      rank:'Royal Elite', text:'Los eventos mensuales son lo mejor. Cada torneo es diferente y las recompensas valen la pena.', stars:5 },
   { nick:'NightBuilderZ',     rank:'Bee Worker',  text:'Vine por el survival y me quedé por la comunidad. Los admins son justos y escuchan sugerencias.', stars:5 },
@@ -271,7 +270,7 @@ function renderPicsGallery(){
         <div class="pic-overlay-title">${esc(p.title)}</div>
         <span class="pic-overlay-tag">${catLabel(p.category)}</span>
       </div>
-      ${currentUser&&currentUser.isAdmin?`<button class="pic-del-btn" onclick="event.stopPropagation();adminDeletePic(${p.id})">✕</button>`:''}
+      ${currentUser&&currentUser.isAdmin?`<button class="pic-del-btn" onclick="event.stopPropagation();adminDeletePic(${p.id})">X</button>`:''}
     </div>`).join('');
   initScrollReveal();
 }
@@ -353,7 +352,7 @@ async function loadChatMessages(){
 function renderChat(){
   const box=document.getElementById('chatBox');
   if(!box)return;
-  if(!chatMessages.length){box.innerHTML='<div class="chat-loading">Sé el primero en escribir algo 👋</div>';return;}
+  if(!chatMessages.length){box.innerHTML='<div class="chat-loading">Sé el primero en escribir algo.</div>';return;}
   const wasAtBottom=box.scrollTop+box.clientHeight>=box.scrollHeight-30;
   box.innerHTML=chatMessages.map(msg=>`
     <div class="chat-msg ${currentUser&&msg.user_id===currentUser.id?'own':''}">
@@ -363,8 +362,9 @@ function renderChat(){
           <span class="chat-msg-nick">${esc(msg.username)}</span>
           ${msg.role?`<span class="chat-msg-role ${roleClass(msg.role)}">${roleLabel(msg.role)}</span>`:''}
           <span class="chat-msg-time">${fmtTime(msg.created_at)}</span>
-          ${currentUser&&currentUser.isAdmin?`<button class="chat-mod-btn" onclick="adminDeleteMsg('${msg.id}','${esc(msg.username)}')" title="Borrar mensaje">🗑</button>
-           <button class="chat-mod-btn ban" onclick="adminBanFromChat('${msg.user_id}','${esc(msg.username)}')" title="Banear usuario">🚫</button>`:''}
+          ${currentUser&&currentUser.isAdmin?`
+           <button class="chat-mod-btn" onclick="adminDeleteMsg('${msg.id}','${esc(msg.username)}')" title="Borrar mensaje">[x]</button>
+           <button class="chat-mod-btn ban" onclick="adminBanFromChat('${msg.user_id}','${esc(msg.username)}')" title="Banear usuario">[ban]</button>`:''}
         </div>
         <div class="chat-msg-text">${esc(msg.content)}</div>
       </div>
@@ -398,12 +398,12 @@ async function sendChatMessage(){
 })();
 
 // ============================================================
-// TOASTS (join notifications)
+// JOIN NOTIFICATIONS
 // ============================================================
 (function(){
   const nicks=['xXDragonSlayerXx','CraftMaster99','PvPQueenLara','NightBuilderZ','HoneyTrapXD','StealthyCreeper','MasterBlockZ','SkyWarriorPro','EpicBeeHunter','ShadowCraft','LegendaryBeeZ'];
   const rks=['[Worker]','[Honey VIP]','[Queen Bee]','[Royal Elite]'];
-  function showToast(){
+  function showJoinToast(){
     const nick=nicks[Math.floor(Math.random()*nicks.length)];
     const rank=rks[Math.floor(Math.random()*rks.length)];
     const cont=document.getElementById('toastContainer');if(!cont)return;
@@ -412,7 +412,7 @@ async function sendChatMessage(){
     cont.appendChild(t);
     setTimeout(()=>{t.style.transition='opacity .4s,transform .4s';t.style.opacity='0';t.style.transform='translateX(-20px)';setTimeout(()=>t.remove(),400);},4000);
   }
-  setTimeout(()=>{showToast();setInterval(showToast,12000+Math.random()*8000);},4000);
+  setTimeout(()=>{showJoinToast();setInterval(showJoinToast,12000+Math.random()*8000);},4000);
 })();
 
 // ============================================================
@@ -429,7 +429,6 @@ function handleLogoUpload(input){
     if(ni){ni.src=src;ni.style.display='block';}
     document.getElementById('logoPreview').style.display='block';
     document.getElementById('logoPreviewImg').src=src;
-    // Save to DB
     try{await api('/api/admin/config',{method:'PUT',body:JSON.stringify({key:'logo_url',value:src})});toast('Logo guardado','ok');}
     catch(e){toast('Error guardando logo','error');}
   };
@@ -463,7 +462,6 @@ function switchTab(tabId,btn){
   if(btn)btn.classList.add('active');
   const panel=document.getElementById('tab-'+tabId);
   if(panel)panel.classList.add('active');
-  // Load data for each tab
   if(tabId==='overview')    loadAdminStats();
   if(tabId==='chat')        loadAdminChat();
   if(tabId==='miembros')    loadAdminMembers();
@@ -472,7 +470,6 @@ function switchTab(tabId,btn){
   if(tabId==='galeria')     loadAdminGallery();
   if(tabId==='bans')        loadAdminBans();
   if(tabId==='log')         loadAdminLog();
-  if(tabId==='logo')        {}
 }
 
 // ============================================================
@@ -487,32 +484,26 @@ async function loadAdminStats(){
     panel.innerHTML=`
       <div class="admin-stats-grid">
         <div class="admin-stat-card">
-          <div class="admin-stat-icon">💬</div>
           <div class="admin-stat-num">${s.totalChatMessages}</div>
           <div class="admin-stat-label">Mensajes en chat</div>
         </div>
         <div class="admin-stat-card">
-          <div class="admin-stat-icon">👥</div>
           <div class="admin-stat-num">${s.uniqueChatUsers}</div>
           <div class="admin-stat-label">Usuarios únicos</div>
         </div>
         <div class="admin-stat-card">
-          <div class="admin-stat-icon">🗑️</div>
           <div class="admin-stat-num">${s.deletedMessages}</div>
           <div class="admin-stat-label">Mensajes borrados</div>
         </div>
         <div class="admin-stat-card">
-          <div class="admin-stat-icon">👑</div>
           <div class="admin-stat-num">${s.teamMembers}</div>
           <div class="admin-stat-label">Miembros del equipo</div>
         </div>
         <div class="admin-stat-card">
-          <div class="admin-stat-icon">🖼️</div>
           <div class="admin-stat-num">${s.galleryPics}</div>
           <div class="admin-stat-label">Fotos en galería</div>
         </div>
         <div class="admin-stat-card red">
-          <div class="admin-stat-icon">🚫</div>
           <div class="admin-stat-num">${s.bannedUsers}</div>
           <div class="admin-stat-label">Usuarios baneados</div>
         </div>
@@ -554,15 +545,15 @@ async function loadAdminChat(){
         </div>
         ${!m.deleted?`
         <div style="display:flex;gap:6px;flex-shrink:0">
-          <button class="admin-action-btn del" onclick="adminDeleteMsg('${m.id}','${esc(m.username)}')">🗑 Borrar</button>
-          <button class="admin-action-btn ban" onclick="adminBanFromChat('${m.user_id}','${esc(m.username)}')">🚫 Banear</button>
+          <button class="admin-action-btn del" onclick="adminDeleteMsg('${m.id}','${esc(m.username)}')">Borrar</button>
+          <button class="admin-action-btn ban" onclick="adminBanFromChat('${m.user_id}','${esc(m.username)}')">Banear</button>
         </div>`:''}
       </div>`).join('');
   }catch(e){panel.querySelector('#adminChatList').innerHTML=`<p style="color:var(--orange);padding:16px">Error: ${e.message}</p>`;}
 }
 
 async function adminDeleteMsg(id, username){
-  if(!confirm(`¿Borrar mensaje de ${username}?`))return;
+  if(!confirm(`Borrar mensaje de ${username}?`))return;
   try{
     await api('/api/admin/chat/'+id,{method:'DELETE'});
     toast('Mensaje borrado','ok');
@@ -646,7 +637,7 @@ async function addMember(){
   else doAdd(null);
 }
 async function adminDeleteMember(id){
-  if(!confirm('¿Eliminar este miembro?'))return;
+  if(!confirm('Eliminar este miembro?'))return;
   try{await api('/api/admin/team/'+id,{method:'DELETE'});toast('Miembro eliminado','ok');loadAdminMembers();loadAndRenderTeam();}
   catch(e){toast(e.message,'error');}
 }
@@ -711,7 +702,7 @@ async function addRang(){
   }catch(e){toast(e.message,'error');}
 }
 async function adminDeleteRank(id){
-  if(!confirm('¿Eliminar este rango?'))return;
+  if(!confirm('Eliminar este rango?'))return;
   try{await api('/api/admin/ranks/'+id,{method:'DELETE'});toast('Rango eliminado','ok');loadAdminRanks();loadAndRenderShop();}
   catch(e){toast(e.message,'error');}
 }
@@ -746,7 +737,7 @@ async function saveEvento(){
     initCountdown();
     toast('Evento guardado','ok');
     const msg=document.getElementById('eventoSaveMsg');
-    msg.textContent='¡Guardado!';msg.style.opacity='1';
+    msg.textContent='Guardado!';msg.style.opacity='1';
     setTimeout(()=>msg.style.opacity='0',2000);
   }catch(e){toast(e.message,'error');}
 }
@@ -775,7 +766,7 @@ function renderPending(){
   const el=document.getElementById('picsPending');
   const meta=document.getElementById('picsMetaForm');
   if(!el)return;
-  el.innerHTML=pendingPics.map((p,i)=>`<div class="pics-pending-thumb"><img src="${p.src}" alt=""><button class="remove-pending" onclick="removePending(${i})">✕</button></div>`).join('');
+  el.innerHTML=pendingPics.map((p,i)=>`<div class="pics-pending-thumb"><img src="${p.src}" alt=""><button class="remove-pending" onclick="removePending(${i})">X</button></div>`).join('');
   if(meta)meta.style.display=pendingPics.length?'block':'none';
 }
 function removePending(i){pendingPics.splice(i,1);renderPending();}
@@ -795,7 +786,7 @@ async function publishPics(){
   }catch(e){toast(e.message,'error');}
 }
 async function adminDeletePic(id){
-  if(!confirm('¿Eliminar esta foto?'))return;
+  if(!confirm('Eliminar esta foto?'))return;
   try{
     await api('/api/admin/gallery/'+id,{method:'DELETE'});
     toast('Foto eliminada','ok');
@@ -813,7 +804,7 @@ function renderAdminGallery(){
   list.innerHTML=pics.map(p=>`
     <div style="position:relative;width:80px;height:80px;border-radius:9px;overflow:hidden;border:1px solid var(--border)">
       <img src="${esc(p.image_url)}" style="width:100%;height:100%;object-fit:cover" alt="${esc(p.title)}" title="${esc(p.title)}" loading="lazy">
-      <button onclick="adminDeletePic(${p.id})" style="position:absolute;top:3px;right:3px;background:rgba(200,30,30,.85);border:none;color:#fff;width:20px;height:20px;border-radius:5px;font-size:.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+      <button onclick="adminDeletePic(${p.id})" style="position:absolute;top:3px;right:3px;background:rgba(200,30,30,.85);border:none;color:#fff;width:20px;height:20px;border-radius:5px;font-size:.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center">X</button>
     </div>`).join('');
 }
 
@@ -854,7 +845,7 @@ async function adminBanManual(){
   }catch(e){toast(e.message,'error');}
 }
 async function adminUnban(userId,username){
-  if(!confirm(`¿Desbanear a ${username}?`))return;
+  if(!confirm(`Desbanear a ${username}?`))return;
   try{await api('/api/admin/bans/'+userId,{method:'DELETE'});toast('Desbaneado','ok');loadAdminBans();}
   catch(e){toast(e.message,'error');}
 }
