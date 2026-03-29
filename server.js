@@ -1,7 +1,4 @@
-// ============================================================
-//  BEETEAM - server.js v2
-//  Express + Discord OAuth2 + Supabase DB + Admin Panel API
-// ============================================================
+
 const express  = require('express');
 const session  = require('express-session');
 const path     = require('path');
