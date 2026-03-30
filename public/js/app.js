@@ -1081,7 +1081,8 @@ async function submitTicket(){
   try{
     const newTicket = await api('/api/tickets',{method:'POST',body:JSON.stringify({nick,type,subject,description:desc})});
     ['ticketNick','ticketType','ticketSubject','ticketDesc'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('ticketModal').classList.add('open');
+    const ticketModal = document.getElementById('ticketModal');
+    if (ticketModal) { ticketModal.classList.add('open'); document.body.classList.add('modal-open'); }
     // Mostrar el ticket creado con chat
     setTimeout(() => {
       loadUserTickets();
@@ -1095,8 +1096,7 @@ async function loadUserTickets(){
   if(!section) return;
   if(!currentUser) { section.style.display='none'; return; }
   try {
-    const allTickets = await api('/api/admin/tickets');
-    const userTickets = allTickets.filter(t => t.user_id === currentUser.id);
+    const userTickets = await api('/api/tickets');
     if(!userTickets.length){section.style.display='none'; return; }
     section.style.display='block';
     const list = document.getElementById('userTicketsList');
@@ -1186,17 +1186,14 @@ function openBuyModal(name,price){
   if(!modal||!rankEl||!priceEl){console.error('Buy modal element missing');return;}
   rankEl.textContent=name;
   priceEl.textContent=price;
-  modal.style.display='flex';
   modal.classList.add('open');
   document.body.classList.add('modal-open');
-  setTimeout(()=>{const m=document.querySelector('#buyModal .modal'); if(m) m.style.opacity='1';},10);
 }
 function closeBuyModal(e){
   const modal=document.getElementById('buyModal');
   if(!modal) return;
   if(!e || e.target.id==='buyModal' || e.target.classList.contains('modal-close')){
     modal.classList.remove('open');
-    modal.style.display='none';
     document.body.classList.remove('modal-open');
   }
 }
@@ -1205,7 +1202,6 @@ function closeTicketModal(e){
   if(!modal) return;
   if(!e || e.target.id==='ticketModal' || e.target.classList.contains('modal-close')){
     modal.classList.remove('open');
-    modal.style.display='none';
     document.body.classList.remove('modal-open');
   }
 }

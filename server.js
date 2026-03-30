@@ -47,17 +47,60 @@ if (CFG.SUPABASE_URL && CFG.SUPABASE_SERVICE_KEY) {
   console.warn('Supabase not configured - using in-memory fallback');
 }
 
+const fs = require('fs');
+const SHADOW_PATH = path.join(__dirname, 'db_persistence');
+if (!fs.existsSync(SHADOW_PATH)) fs.mkdirSync(SHADOW_PATH, { recursive: true });
+
+function loadShadow(name, fallback) {
+  try {
+    const p = path.join(SHADOW_PATH, name + '.json');
+    if (!fs.existsSync(p)) return fallback;
+    return JSON.parse(fs.readFileSync(p, 'utf8')) || fallback;
+  } catch (e) {
+    console.error('[DB] loadShadow error', name, e.message);
+    return fallback;
+  }
+}
+function saveShadow(name, data) {
+  try {
+    fs.writeFileSync(path.join(SHADOW_PATH, name + '.json'), JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('[DB] saveShadow error', name, e.message);
+  }
+}
+
 // In-memory fallback
 const mem = {
-  chat: [], members: [], ranks: [
+  chat: loadShadow('chat', []),
+  members: loadShadow('members', []),
+  ranks: loadShadow('ranks', [
     { id:1, name:'Bee Worker',  name_highlight:'Bee',   price:'$2.99',  featured:false, perks:['Prefix [Worker]','Kit inicio','x2 /sethome','Color nombre'], sort_order:1, active:true },
     { id:2, name:'Honey VIP',   name_highlight:'Honey', price:'$6.99',  featured:true,  perks:['Todo Worker','/fly spawn','/sethome x5','Eventos VIP'], sort_order:2, active:true },
     { id:3, name:'Queen Bee',   name_highlight:'Queen', price:'$12.99', featured:false, perks:['Todo Honey','/fly global','Homes ilimitados','Servidor creativo'], sort_order:3, active:true },
     { id:4, name:'Royal Elite', name_highlight:'Royal', price:'$24.99', featured:false, perks:['Todo Queen','Comandos admin','Badge Discord','Kit mensual'], sort_order:4, active:true },
-  ],
-  gallery: [], events: [{ id:1, nombre:'Torneo PvP Mensual', descripcion:'', fecha: new Date(Date.now()+7*86400000).toISOString(), activo:true }],
-  config: {}, banned: [], adminLog: [], tickets: [],
+  ]),
+  gallery: loadShadow('gallery', []),
+  events: loadShadow('events', [{ id:1, nombre:'Torneo PvP Mensual', descripcion:'', fecha: new Date(Date.now()+7*86400000).toISOString(), activo:true }]),
+  config: loadShadow('config', {}),
+  banned: loadShadow('banned', []),
+  adminLog: loadShadow('adminLog', []),
+  tickets: loadShadow('tickets', []),
+  ticketMessages: loadShadow('ticketMessages', []),
 };
+
+function persistMem(){
+  saveShadow('chat', mem.chat);
+  saveShadow('members', mem.members);
+  saveShadow('ranks', mem.ranks);
+  saveShadow('gallery', mem.gallery);
+  saveShadow('events', mem.events);
+  saveShadow('config', mem.config);
+  saveShadow('banned', mem.banned);
+  saveShadow('adminLog', mem.adminLog);
+  saveShadow('tickets', mem.tickets);
+  saveShadow('ticketMessages', mem.ticketMessages);
+}
+
 
 // ============================================================
 // DB HELPERS
@@ -228,6 +271,7 @@ const db = {
     }
     var nt = Object.assign({}, t, {id: Date.now(), status:'pending', created_at: new Date().toISOString()});
     mem.tickets.push(nt);
+    persistMem();
     return nt;
   },
   async getTickets() {
@@ -240,11 +284,15 @@ const db = {
   async updateTicketStatus(id, status) {
     if (supabase) { await supabase.from('tickets').update({status}).eq('id',id); return; }
     var t = mem.tickets.find(function(t){return String(t.id)===String(id);});
-    if (t) t.status = status;
+    if (t) {
+      t.status = status;
+      persistMem();
+    }
   },
   async deleteTicket(id) {
     if (supabase) { await supabase.from('tickets').delete().eq('id',id); return; }
     mem.tickets = mem.tickets.filter(function(t){return String(t.id)!==String(id);});
+    persistMem();
   },
   async getTicketMessages(ticketId) {
     if (supabase) {
@@ -262,6 +310,7 @@ const db = {
     if (!mem.ticketMessages) mem.ticketMessages = [];
     var nm = Object.assign({}, msg, {id:Date.now()});
     mem.ticketMessages.push(nm);
+    persistMem();
     return nm;
   },
 };
@@ -534,6 +583,11 @@ app.get('/api/admin/log', requireAdmin, async function(req,res) { res.json(await
 
 // TICKETS ADMIN
 app.get('/api/admin/tickets', requireAdmin, async function(req,res) { res.json(await db.getTickets()); });
+app.get('/api/tickets', requireAuth, async function(req,res) {
+  const all = await db.getTickets();
+  const mine = (all||[]).filter(function(t){return String(t.user_id)===String(req.session.user.id);});
+  res.json(mine);
+});
 app.put('/api/admin/tickets/:id', requireAdmin, async function(req,res) {
   await db.updateTicketStatus(req.params.id, req.body.status);
   await db.log(req.session.user.id, req.session.user.username, 'update_ticket', req.params.id, req.body.status);
