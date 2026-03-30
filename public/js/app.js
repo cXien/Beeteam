@@ -1186,14 +1186,17 @@ function openBuyModal(name,price){
   if(!modal||!rankEl||!priceEl){console.error('Buy modal element missing');return;}
   rankEl.textContent=name;
   priceEl.textContent=price;
+  modal.style.display='flex';
   modal.classList.add('open');
   document.body.classList.add('modal-open');
+  setTimeout(()=>{const m=document.querySelector('#buyModal .modal'); if(m) m.style.opacity='1';},10);
 }
 function closeBuyModal(e){
   const modal=document.getElementById('buyModal');
   if(!modal) return;
   if(!e || e.target.id==='buyModal' || e.target.classList.contains('modal-close')){
     modal.classList.remove('open');
+    modal.style.display='none';
     document.body.classList.remove('modal-open');
   }
 }
@@ -1202,6 +1205,7 @@ function closeTicketModal(e){
   if(!modal) return;
   if(!e || e.target.id==='ticketModal' || e.target.classList.contains('modal-close')){
     modal.classList.remove('open');
+    modal.style.display='none';
     document.body.classList.remove('modal-open');
   }
 }
