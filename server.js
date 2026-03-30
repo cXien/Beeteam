@@ -136,6 +136,7 @@ const db = {
     const m = Object.assign({}, msg, {id: Date.now().toString(), created_at: new Date().toISOString()});
     mem.chat.push(m);
     if (mem.chat.length > 500) mem.chat.shift();
+    persistMem();
     return m;
   },
   async deleteChat(id, adminId, adminName) {
@@ -146,6 +147,7 @@ const db = {
     }
     var m = mem.chat.find(function(m){return String(m.id)===String(id);});
     if (m) { m.deleted=true; m.deleted_by=adminId; }
+    persistMem();
   },
   async getAllChat(limit) {
     limit = limit || 200;
@@ -169,16 +171,19 @@ const db = {
     }
     var nm = Object.assign({}, m, {id: Date.now(), created_at: new Date().toISOString()});
     mem.members.push(nm);
+    persistMem();
     return nm;
   },
   async updateMember(id, data) {
     if (supabase) { await supabase.from('team_members').update(data).eq('id',id); return; }
     var m = mem.members.find(function(m){return String(m.id)===String(id);});
     if (m) Object.assign(m, data);
+    persistMem();
   },
   async deleteMember(id) {
     if (supabase) { await supabase.from('team_members').delete().eq('id',id); return; }
     mem.members = mem.members.filter(function(m){return String(m.id)!==String(id);});
+    persistMem();
   },
   async getRanks(adminMode) {
     if (supabase) {
@@ -191,16 +196,18 @@ const db = {
   },
   async addRank(r) {
     if (supabase) { const {data} = await supabase.from('ranks').insert(r).select().single(); return data; }
-    var nr = Object.assign({}, r, {id: Date.now()}); mem.ranks.push(nr); return nr;
+    var nr = Object.assign({}, r, {id: Date.now()}); mem.ranks.push(nr); persistMem(); return nr;
   },
   async updateRank(id, data) {
     if (supabase) { await supabase.from('ranks').update(data).eq('id',id); return; }
     var r = mem.ranks.find(function(r){return String(r.id)===String(id);});
     if (r) Object.assign(r, data);
+    persistMem();
   },
   async deleteRank(id) {
     if (supabase) { await supabase.from('ranks').delete().eq('id',id); return; }
     mem.ranks = mem.ranks.filter(function(r){return String(r.id)!==String(id);});
+    persistMem();
   },
   async getGallery() {
     if (supabase) { const {data} = await supabase.from('gallery_pics').select('*').order('created_at',{ascending:false}); return data||[]; }
@@ -208,11 +215,12 @@ const db = {
   },
   async addPic(p) {
     if (supabase) { const {data} = await supabase.from('gallery_pics').insert(p).select().single(); return data; }
-    var np = Object.assign({}, p, {id: Date.now(), created_at: new Date().toISOString()}); mem.gallery.push(np); return np;
+    var np = Object.assign({}, p, {id: Date.now(), created_at: new Date().toISOString()}); mem.gallery.push(np); persistMem(); return np;
   },
   async deletePic(id) {
     if (supabase) { await supabase.from('gallery_pics').delete().eq('id',id); return; }
     mem.gallery = mem.gallery.filter(function(p){return String(p.id)!==String(id);});
+    persistMem();
   },
   async getEvent(activeOnly) {
     if (supabase) {
@@ -451,7 +459,7 @@ app.get('/api/mc-status', async function(req,res) {
 });
 
 // TICKETS PUBLIC
-app.post('/api/tickets', async function(req,res) {
+app.post('/api/tickets', requireAuth, async function(req,res) {
   var b = req.body;
   if (!b.nick || !b.type || !b.subject || !b.description) return res.status(400).json({error:'Faltan campos'});
   try {
@@ -460,12 +468,10 @@ app.post('/api/tickets', async function(req,res) {
       type: b.type.trim().slice(0,100),
       subject: b.subject.trim().slice(0,200),
       description: b.description.trim().slice(0,2000),
+      user_id: req.session.user.id,
+      user_name: req.session.user.username,
       status: 'pending'
     };
-    if (req.session.user) {
-      ticketData.user_id = req.session.user.id;
-      ticketData.user_name = req.session.user.username;
-    }
     var t = await db.addTicket(ticketData);
     res.json(t);
   } catch(e) { res.status(500).json({error:e.message}); }
