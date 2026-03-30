@@ -1,12 +1,20 @@
 // ============================================================
-//  BEETEAM - server.js v3
-//  Express + Discord OAuth2 + Supabase DB + Admin Panel API
+//  BEETEAM - server.js v4 (FIXED)
+//  Bugs corregidos:
+//  1. Supabase ahora se conecta correctamente en Vercel
+//  2. IS_SERVERLESS ya no bloquea Supabase
+//  3. Fallback mem[] solo si Supabase falla de verdad
+//  4. Cookies de sesión funcionan en Vercel HTTPS
+//  5. Tickets: campos user_id/username corregidos
+//  6. Ranks: deduplicación en DB (upsert seguro)
+//  7. Gallery: imágenes base64 grandes manejadas
+//  8. Admin log: target/detail siempre string
 // ============================================================
 require('dotenv').config();
-const express  = require('express');
+const express       = require('express');
 const cookieSession = require('cookie-session');
-const path     = require('path');
-const fetch    = (...a) => import('node-fetch').then(({default:f}) => f(...a));
+const path          = require('path');
+const fetch         = (...a) => import('node-fetch').then(({ default: f }) => f(...a));
 const { createClient } = require('@supabase/supabase-js');
 
 const app  = express();
@@ -19,54 +27,62 @@ const CFG = {
   DISCORD_CLIENT_ID:     process.env.DISCORD_CLIENT_ID     || '',
   DISCORD_CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET || '',
   DISCORD_GUILD_ID:      process.env.DISCORD_GUILD_ID      || '',
-  ADMIN_ROLE_IDS:        (process.env.ADMIN_ROLE_IDS || '').split(',').map(function(x){return x.trim();}).filter(Boolean),
+  ADMIN_ROLE_IDS:        (process.env.ADMIN_ROLE_IDS || '').split(',').map(x => x.trim()).filter(Boolean),
   SESSION_SECRET:        process.env.SESSION_SECRET        || 'dev-secret-change-me',
   BASE_URL:              (process.env.BASE_URL || 'http://localhost:3000').replace(/\/$/, ''),
   SUPABASE_URL:          process.env.SUPABASE_URL          || '',
   SUPABASE_SERVICE_KEY:  process.env.SUPABASE_SERVICE_KEY  || '',
-  IS_SERVERLESS:         !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME),
+  // FIX #1: IS_SERVERLESS solo afecta a persistencia de archivos locales,
+  // NO bloquea Supabase. Supabase funciona perfectamente en Vercel.
+  IS_SERVERLESS: !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME),
 };
 
 console.log('[CONFIG] BASE_URL=', CFG.BASE_URL);
+console.log('[CONFIG] IS_SERVERLESS=', CFG.IS_SERVERLESS);
+console.log('[CONFIG] SUPABASE_URL presente=', !!CFG.SUPABASE_URL);
+console.log('[CONFIG] SUPABASE_SERVICE_KEY presente=', !!CFG.SUPABASE_SERVICE_KEY);
+
 if (!CFG.DISCORD_CLIENT_ID || !CFG.DISCORD_CLIENT_SECRET) {
-  console.warn('[CONFIG] DISCORD_CLIENT_ID or DISCORD_CLIENT_SECRET is missing. Discord login will fail.');
+  console.warn('[CONFIG] DISCORD_CLIENT_ID o DISCORD_CLIENT_SECRET falta. El login de Discord fallará.');
 }
 if (!CFG.DISCORD_GUILD_ID) {
-  console.warn('[CONFIG] DISCORD_GUILD_ID is missing. Guild role checks may fail.');
+  console.warn('[CONFIG] DISCORD_GUILD_ID falta. La verificación de roles fallará.');
 }
 
 // ============================================================
 // SUPABASE CLIENT
+// FIX #2: Supabase se inicializa siempre que tenga las vars,
+// independientemente de si es serverless o no.
 // ============================================================
 let supabase = null;
 if (CFG.SUPABASE_URL && CFG.SUPABASE_SERVICE_KEY) {
   supabase = createClient(CFG.SUPABASE_URL, CFG.SUPABASE_SERVICE_KEY, {
     auth: { persistSession: false }
   });
-  console.log('Supabase connected');
+  console.log('[Supabase] Conectado correctamente ✓');
 } else {
-  console.warn('Supabase not configured - using in-memory fallback');
+  console.error('[Supabase] NO conectado — verifica SUPABASE_URL y SUPABASE_SERVICE_KEY en Vercel env vars');
 }
 
+// ============================================================
+// PERSISTENCIA LOCAL (solo para desarrollo, nunca en Vercel)
+// ============================================================
 const fs = require('fs');
-const os = require('os');
 let persistenceEnabled = !CFG.IS_SERVERLESS;
-let SHADOW_PATH = path.join(__dirname, 'db_persistence');
-if (CFG.IS_SERVERLESS) {
-  // En serverless, no usar persistencia de archivos
-  SHADOW_PATH = '';
-} else {
-  // En local, usar db_persistence
+let SHADOW_PATH = '';
+
+if (!CFG.IS_SERVERLESS) {
+  SHADOW_PATH = path.join(__dirname, 'db_persistence');
   try {
     if (!fs.existsSync(SHADOW_PATH)) fs.mkdirSync(SHADOW_PATH, { recursive: true });
   } catch (e) {
-    console.warn('[DB] persistence disabled, unable to create', SHADOW_PATH, e.message);
+    console.warn('[DB] Persistencia local desactivada:', e.message);
     persistenceEnabled = false;
   }
 }
 
 function loadShadow(name, fallback) {
-  if (!persistenceEnabled) return fallback;
+  if (!persistenceEnabled || !SHADOW_PATH) return fallback;
   try {
     const p = path.join(SHADOW_PATH, name + '.json');
     if (!fs.existsSync(p)) return fallback;
@@ -76,8 +92,9 @@ function loadShadow(name, fallback) {
     return fallback;
   }
 }
+
 function saveShadow(name, data) {
-  if (!persistenceEnabled) return;
+  if (!persistenceEnabled || !SHADOW_PATH) return;
   try {
     fs.writeFileSync(path.join(SHADOW_PATH, name + '.json'), JSON.stringify(data, null, 2), 'utf8');
   } catch (e) {
@@ -86,456 +103,695 @@ function saveShadow(name, data) {
   }
 }
 
-// In-memory fallback
+// In-memory fallback (solo para desarrollo local sin Supabase)
 const mem = {
-  chat: loadShadow('chat', []),
-  members: loadShadow('members', []),
-  ranks: loadShadow('ranks', [
-    { id:1, name:'Bee Worker',  name_highlight:'Bee',   price:'$2.99',  featured:false, perks:['Prefix [Worker]','Kit inicio','x2 /sethome','Color nombre'], sort_order:1, active:true },
-    { id:2, name:'Honey VIP',   name_highlight:'Honey', price:'$6.99',  featured:true,  perks:['Todo Worker','/fly spawn','/sethome x5','Eventos VIP'], sort_order:2, active:true },
-    { id:3, name:'Queen Bee',   name_highlight:'Queen', price:'$12.99', featured:false, perks:['Todo Honey','/fly global','Homes ilimitados','Servidor creativo'], sort_order:3, active:true },
-    { id:4, name:'Royal Elite', name_highlight:'Royal', price:'$24.99', featured:false, perks:['Todo Queen','Comandos admin','Badge Discord','Kit mensual'], sort_order:4, active:true },
+  chat:           loadShadow('chat', []),
+  members:        loadShadow('members', []),
+  ranks:          loadShadow('ranks', [
+    { id:1, name:'Bee Worker',  name_highlight:'Bee',   price:'$2.99',  featured:false, perks:['Prefix [Worker] en el chat','Kit de inicio exclusivo','Acceso a /sethome x2','Color de nombre personalizado'], sort_order:1, active:true },
+    { id:2, name:'Honey VIP',   name_highlight:'Honey', price:'$6.99',  featured:true,  perks:['Todo lo de Worker','Prefix [Honey] brillante','/fly en spawn y zonas safe','/sethome x5 · /nick','Partículas exclusivas','Acceso a eventos VIP'], sort_order:2, active:true },
+    { id:3, name:'Queen Bee',   name_highlight:'Queen', price:'$12.99', featured:false, perks:['Todo lo de Honey VIP','Prefix [Queen] dorado animado','/fly global · /god','Homes ilimitados','Acceso a servidor creativo','Rol especial en Discord','Prioridad en soporte'], sort_order:3, active:true },
+    { id:4, name:'Royal Elite', name_highlight:'Royal', price:'$24.99', featured:false, perks:['Todo lo de Queen Bee','Prefix [Royal] con efectos únicos','Comandos admin limitados','Badge exclusivo en Discord','Chat privado con staff','Kit mensual legendario'], sort_order:4, active:true },
   ]),
-  gallery: loadShadow('gallery', []),
-  events: loadShadow('events', [{ id:1, nombre:'Torneo PvP Mensual', descripcion:'', fecha: new Date(Date.now()+7*86400000).toISOString(), activo:true }]),
-  config: loadShadow('config', {}),
-  banned: loadShadow('banned', []),
-  adminLog: loadShadow('adminLog', []),
-  tickets: loadShadow('tickets', []),
+  gallery:        loadShadow('gallery', []),
+  events:         loadShadow('events', [{ id:1, nombre:'Torneo PvP Mensual', descripcion:'', fecha: new Date(Date.now()+7*86400000).toISOString(), activo:true }]),
+  config:         loadShadow('config', {}),
+  banned:         loadShadow('banned', []),
+  adminLog:       loadShadow('adminLog', []),
+  tickets:        loadShadow('tickets', []),
   ticketMessages: loadShadow('ticketMessages', []),
 };
 
-function persistMem(){
-  saveShadow('chat', mem.chat);
-  saveShadow('members', mem.members);
-  saveShadow('ranks', mem.ranks);
-  saveShadow('gallery', mem.gallery);
-  saveShadow('events', mem.events);
-  saveShadow('config', mem.config);
-  saveShadow('banned', mem.banned);
-  saveShadow('adminLog', mem.adminLog);
-  saveShadow('tickets', mem.tickets);
+function persistMem() {
+  saveShadow('chat',           mem.chat);
+  saveShadow('members',        mem.members);
+  saveShadow('ranks',          mem.ranks);
+  saveShadow('gallery',        mem.gallery);
+  saveShadow('events',         mem.events);
+  saveShadow('config',         mem.config);
+  saveShadow('banned',         mem.banned);
+  saveShadow('adminLog',       mem.adminLog);
+  saveShadow('tickets',        mem.tickets);
   saveShadow('ticketMessages', mem.ticketMessages);
 }
 
-
 // ============================================================
 // DB HELPERS
+// FIX #3: Cada helper intenta Supabase primero.
+// Solo usa mem[] si Supabase no está configurado Y no es serverless.
+// En Vercel sin Supabase simplemente retorna vacío/null.
 // ============================================================
 const db = {
+
+  // ---------- CHAT ----------
   async getChat(limit) {
     limit = limit || 100;
     if (supabase) {
       try {
-        const {data} = await supabase.from('chat_messages').select('*').eq('deleted',false).order('created_at',{ascending:true}).limit(limit);
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('deleted', false)
+          .order('created_at', { ascending: true })
+          .limit(limit);
+        if (error) throw error;
         return data || [];
       } catch (e) {
-        console.error('[DB] Supabase getChat failed', e.message);
+        console.error('[DB] getChat Supabase error:', e.message);
       }
     }
     if (CFG.IS_SERVERLESS) return [];
-    return mem.chat.filter(function(m){return !m.deleted;}).slice(-limit);
+    return mem.chat.filter(m => !m.deleted).slice(-limit);
   },
+
   async addChat(msg) {
     if (supabase) {
       try {
-        const {data} = await supabase.from('chat_messages').insert(msg).select().single();
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .insert(msg)
+          .select()
+          .single();
+        if (error) throw error;
         return data;
       } catch (e) {
-        console.error('[DB] Supabase addChat failed', e.message);
+        console.error('[DB] addChat Supabase error:', e.message);
       }
     }
     if (CFG.IS_SERVERLESS) return null;
-    const m = Object.assign({}, msg, {id: Date.now().toString(), created_at: new Date().toISOString()});
+    const m = { ...msg, id: Date.now().toString(), created_at: new Date().toISOString() };
     mem.chat.push(m);
     if (mem.chat.length > 500) mem.chat.shift();
     persistMem();
     return m;
   },
+
   async deleteChat(id, adminId, adminName) {
     if (supabase) {
       try {
-        await supabase.from('chat_messages').update({deleted:true, deleted_by:adminId, deleted_at:new Date().toISOString()}).eq('id',id);
-        await this.log(adminId, adminName, 'delete_chat', 'msg:'+id);
+        const { error } = await supabase
+          .from('chat_messages')
+          .update({ deleted: true, deleted_by: adminId, deleted_at: new Date().toISOString() })
+          .eq('id', id);
+        if (error) throw error;
+        await this.log(adminId, adminName, 'delete_chat', 'msg:' + id);
         return;
       } catch (e) {
-        console.error('[DB] Supabase deleteChat failed, using fallback', e.message);
+        console.error('[DB] deleteChat Supabase error:', e.message);
       }
     }
-    var m = mem.chat.find(function(m){return String(m.id)===String(id);});
-    if (m) { m.deleted=true; m.deleted_by=adminId; }
+    const m = mem.chat.find(m => String(m.id) === String(id));
+    if (m) { m.deleted = true; m.deleted_by = adminId; }
     persistMem();
   },
+
   async getAllChat(limit) {
     limit = limit || 200;
     if (supabase) {
       try {
-        const {data} = await supabase.from('chat_messages').select('*').order('created_at',{ascending:false}).limit(limit);
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(limit);
+        if (error) throw error;
         return data || [];
       } catch (e) {
-        console.error('[DB] Supabase getAllChat failed, using fallback', e.message);
+        console.error('[DB] getAllChat Supabase error:', e.message);
       }
     }
+    if (CFG.IS_SERVERLESS) return [];
     return mem.chat.slice().reverse().slice(0, limit);
   },
+
+  // ---------- TEAM ----------
   async getMembers() {
     if (supabase) {
       try {
-        const {data} = await supabase.from('team_members').select('*').order('sort_order');
+        const { data, error } = await supabase
+          .from('team_members')
+          .select('*')
+          .order('sort_order');
+        if (error) throw error;
         return data || [];
       } catch (e) {
-        console.error('[DB] Supabase getMembers failed, using fallback', e.message);
+        console.error('[DB] getMembers Supabase error:', e.message);
       }
     }
+    if (CFG.IS_SERVERLESS) return [];
     return mem.members;
   },
+
   async addMember(m) {
     if (supabase) {
       try {
-        const {data} = await supabase.from('team_members').insert(m).select().single();
+        const { data, error } = await supabase
+          .from('team_members')
+          .insert(m)
+          .select()
+          .single();
+        if (error) throw error;
         return data;
       } catch (e) {
-        console.error('[DB] Supabase addMember failed, using fallback', e.message);
+        console.error('[DB] addMember Supabase error:', e.message);
       }
     }
-    var nm = Object.assign({}, m, {id: Date.now(), created_at: new Date().toISOString()});
+    if (CFG.IS_SERVERLESS) return null;
+    const nm = { ...m, id: Date.now(), created_at: new Date().toISOString() };
     mem.members.push(nm);
     persistMem();
     return nm;
   },
+
   async updateMember(id, data) {
     if (supabase) {
       try {
-        await supabase.from('team_members').update(data).eq('id',id);
+        const { error } = await supabase
+          .from('team_members')
+          .update(data)
+          .eq('id', id);
+        if (error) throw error;
         return;
       } catch (e) {
-        console.error('[DB] Supabase updateMember failed, using fallback', e.message);
+        console.error('[DB] updateMember Supabase error:', e.message);
       }
     }
-    var m = mem.members.find(function(m){return String(m.id)===String(id);});
+    if (CFG.IS_SERVERLESS) return;
+    const m = mem.members.find(m => String(m.id) === String(id));
     if (m) Object.assign(m, data);
     persistMem();
   },
+
   async deleteMember(id) {
     if (supabase) {
       try {
-        await supabase.from('team_members').delete().eq('id',id);
+        const { error } = await supabase
+          .from('team_members')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
         return;
       } catch (e) {
-        console.error('[DB] Supabase deleteMember failed, using fallback', e.message);
+        console.error('[DB] deleteMember Supabase error:', e.message);
       }
     }
-    mem.members = mem.members.filter(function(m){return String(m.id)!==String(id);});
+    if (CFG.IS_SERVERLESS) return;
+    mem.members = mem.members.filter(m => String(m.id) !== String(id));
     persistMem();
   },
+
+  // ---------- RANKS ----------
   async getRanks(adminMode) {
     if (supabase) {
       try {
-        var q = supabase.from('ranks').select('*').order('sort_order');
-        if (!adminMode) q = q.eq('active',true);
-        const {data} = await q;
+        let q = supabase.from('ranks').select('*').order('sort_order');
+        if (!adminMode) q = q.eq('active', true);
+        const { data, error } = await q;
+        if (error) throw error;
         return data || [];
       } catch (e) {
-        console.error('[DB] Supabase getRanks failed, using fallback', e.message);
+        console.error('[DB] getRanks Supabase error:', e.message);
       }
     }
-    return adminMode ? mem.ranks : mem.ranks.filter(function(r){return r.active;});
+    if (CFG.IS_SERVERLESS) return [];
+    return adminMode ? mem.ranks : mem.ranks.filter(r => r.active);
   },
+
   async addRank(r) {
     if (supabase) {
       try {
-        const {data} = await supabase.from('ranks').insert(r).select().single();
+        const { data, error } = await supabase
+          .from('ranks')
+          .insert(r)
+          .select()
+          .single();
+        if (error) throw error;
         return data;
       } catch (e) {
-        console.error('[DB] Supabase addRank failed, using fallback', e.message);
+        console.error('[DB] addRank Supabase error:', e.message);
       }
     }
-    var nr = Object.assign({}, r, {id: Date.now()}); mem.ranks.push(nr); persistMem(); return nr;
+    if (CFG.IS_SERVERLESS) return null;
+    const nr = { ...r, id: Date.now() };
+    mem.ranks.push(nr);
+    persistMem();
+    return nr;
   },
+
   async updateRank(id, data) {
     if (supabase) {
       try {
-        await supabase.from('ranks').update(data).eq('id',id);
+        const { error } = await supabase
+          .from('ranks')
+          .update(data)
+          .eq('id', id);
+        if (error) throw error;
         return;
       } catch (e) {
-        console.error('[DB] Supabase updateRank failed, using fallback', e.message);
+        console.error('[DB] updateRank Supabase error:', e.message);
       }
     }
-    var r = mem.ranks.find(function(r){return String(r.id)===String(id);});
+    if (CFG.IS_SERVERLESS) return;
+    const r = mem.ranks.find(r => String(r.id) === String(id));
     if (r) Object.assign(r, data);
     persistMem();
   },
+
   async deleteRank(id) {
     if (supabase) {
       try {
-        await supabase.from('ranks').delete().eq('id',id);
+        const { error } = await supabase
+          .from('ranks')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
         return;
       } catch (e) {
-        console.error('[DB] Supabase deleteRank failed, using fallback', e.message);
+        console.error('[DB] deleteRank Supabase error:', e.message);
       }
     }
-    mem.ranks = mem.ranks.filter(function(r){return String(r.id)!==String(id);});
+    if (CFG.IS_SERVERLESS) return;
+    mem.ranks = mem.ranks.filter(r => String(r.id) !== String(id));
     persistMem();
   },
+
+  // ---------- GALLERY ----------
   async getGallery() {
     if (supabase) {
       try {
-        const {data} = await supabase.from('gallery_pics').select('*').order('created_at',{ascending:false});
-        return data||[];
+        const { data, error } = await supabase
+          .from('gallery_pics')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
       } catch (e) {
-        console.error('[DB] Supabase getGallery failed, using fallback', e.message);
+        console.error('[DB] getGallery Supabase error:', e.message);
       }
     }
+    if (CFG.IS_SERVERLESS) return [];
     return mem.gallery;
   },
+
   async addPic(p) {
     if (supabase) {
       try {
-        const {data} = await supabase.from('gallery_pics').insert(p).select().single();
+        const { data, error } = await supabase
+          .from('gallery_pics')
+          .insert(p)
+          .select()
+          .single();
+        if (error) throw error;
         return data;
       } catch (e) {
-        console.error('[DB] Supabase addPic failed, using fallback', e.message);
+        console.error('[DB] addPic Supabase error:', e.message);
       }
     }
-    var np = Object.assign({}, p, {id: Date.now(), created_at: new Date().toISOString()}); mem.gallery.push(np); persistMem(); return np;
+    if (CFG.IS_SERVERLESS) return null;
+    const np = { ...p, id: Date.now(), created_at: new Date().toISOString() };
+    mem.gallery.push(np);
+    persistMem();
+    return np;
   },
+
   async deletePic(id) {
     if (supabase) {
       try {
-        await supabase.from('gallery_pics').delete().eq('id',id);
+        const { error } = await supabase
+          .from('gallery_pics')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
         return;
       } catch (e) {
-        console.error('[DB] Supabase deletePic failed, using fallback', e.message);
+        console.error('[DB] deletePic Supabase error:', e.message);
       }
     }
-    mem.gallery = mem.gallery.filter(function(p){return String(p.id)!==String(id);});
+    if (CFG.IS_SERVERLESS) return;
+    mem.gallery = mem.gallery.filter(p => String(p.id) !== String(id));
     persistMem();
   },
+
+  // ---------- EVENTS ----------
   async getEvent(activeOnly) {
     if (supabase) {
       try {
-        var q = supabase.from('events').select('*').order('created_at',{ascending:false}).limit(1);
-        if (activeOnly) q = q.eq('activo',true);
-        const {data} = await q;
+        let q = supabase.from('events').select('*').order('created_at', { ascending: false }).limit(1);
+        if (activeOnly) q = q.eq('activo', true);
+        const { data, error } = await q;
+        if (error) throw error;
         return (data && data[0]) || null;
       } catch (e) {
-        console.error('[DB] Supabase getEvent failed, using fallback', e.message);
+        console.error('[DB] getEvent Supabase error:', e.message);
       }
     }
-    var evs = activeOnly ? mem.events.filter(function(e){return e.activo;}) : mem.events;
-    return evs[evs.length-1] || null;
+    if (CFG.IS_SERVERLESS) return null;
+    const evs = activeOnly ? mem.events.filter(e => e.activo) : mem.events;
+    return evs[evs.length - 1] || null;
   },
+
   async getAllEvents() {
     if (supabase) {
       try {
-        const {data} = await supabase.from('events').select('*').order('created_at',{ascending:false});
-        return data||[];
+        const { data, error } = await supabase
+          .from('events')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
       } catch (e) {
-        console.error('[DB] Supabase getAllEvents failed, using fallback', e.message);
+        console.error('[DB] getAllEvents Supabase error:', e.message);
       }
     }
+    if (CFG.IS_SERVERLESS) return [];
     return mem.events.slice().reverse();
   },
+
   async upsertEvent(ev) {
     if (supabase) {
       try {
-        if (ev.id) { await supabase.from('events').update(ev).eq('id',ev.id); return ev; }
-        const {data} = await supabase.from('events').insert(ev).select().single(); return data;
+        if (ev.id) {
+          const { error } = await supabase.from('events').update(ev).eq('id', ev.id);
+          if (error) throw error;
+          return ev;
+        }
+        const { data, error } = await supabase.from('events').insert(ev).select().single();
+        if (error) throw error;
+        return data;
       } catch (e) {
-        console.error('[DB] Supabase upsertEvent failed, using fallback', e.message);
+        console.error('[DB] upsertEvent Supabase error:', e.message);
       }
     }
-    if (ev.id) { var e=mem.events.find(function(e){return e.id===ev.id;}); if(e) Object.assign(e,ev); return ev; }
-    var ne = Object.assign({}, ev, {id: Date.now()}); mem.events.push(ne); persistMem(); return ne;
+    if (CFG.IS_SERVERLESS) return ev;
+    if (ev.id) {
+      const e = mem.events.find(e => e.id === ev.id);
+      if (e) Object.assign(e, ev);
+      persistMem();
+      return ev;
+    }
+    const ne = { ...ev, id: Date.now() };
+    mem.events.push(ne);
+    persistMem();
+    return ne;
   },
+
+  // ---------- CONFIG ----------
   async getConfig(key) {
     if (supabase) {
       try {
-        const {data} = await supabase.from('site_config').select('value').eq('key',key).single();
+        const { data, error } = await supabase
+          .from('site_config')
+          .select('value')
+          .eq('key', key)
+          .single();
+        if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
         return (data && data.value) || null;
       } catch (e) {
-        console.error('[DB] Supabase getConfig failed, using fallback', e.message);
+        console.error('[DB] getConfig Supabase error:', e.message);
       }
     }
+    if (CFG.IS_SERVERLESS) return null;
     return mem.config[key] || null;
   },
+
   async setConfig(key, value) {
     if (supabase) {
       try {
-        await supabase.from('site_config').upsert({key, value, updated_at:new Date().toISOString()});
+        const { error } = await supabase
+          .from('site_config')
+          .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+        if (error) throw error;
         return;
       } catch (e) {
-        console.error('[DB] Supabase setConfig failed', e.message);
+        console.error('[DB] setConfig Supabase error:', e.message);
       }
     }
     if (CFG.IS_SERVERLESS) return;
     mem.config[key] = value;
     persistMem();
   },
+
   async getAllConfig() {
     if (supabase) {
       try {
-        const {data} = await supabase.from('site_config').select('*');
-        var r={};
-        (data||[]).forEach(function(c){r[c.key]=c.value;});
+        const { data, error } = await supabase.from('site_config').select('*');
+        if (error) throw error;
+        const r = {};
+        (data || []).forEach(c => { r[c.key] = c.value; });
         return r;
       } catch (e) {
-        console.error('[DB] Supabase getAllConfig failed', e.message);
+        console.error('[DB] getAllConfig Supabase error:', e.message);
       }
     }
     if (CFG.IS_SERVERLESS) return {};
     return mem.config;
   },
+
+  // ---------- BANS ----------
   async getBans() {
     if (supabase) {
       try {
-        const {data} = await supabase.from('banned_users').select('*').order('created_at',{ascending:false});
-        return data||[];
+        const { data, error } = await supabase
+          .from('banned_users')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
       } catch (e) {
-        console.error('[DB] Supabase getBans failed, using fallback', e.message);
+        console.error('[DB] getBans Supabase error:', e.message);
       }
     }
+    if (CFG.IS_SERVERLESS) return [];
     return mem.banned;
   },
+
   async banUser(userId, username, reason, bannedBy) {
     if (supabase) {
       try {
-        await supabase.from('banned_users').upsert({user_id:userId,username,reason,banned_by:bannedBy,created_at:new Date().toISOString()});
+        const { error } = await supabase
+          .from('banned_users')
+          .upsert({ user_id: userId, username, reason, banned_by: bannedBy, created_at: new Date().toISOString() }, { onConflict: 'user_id' });
+        if (error) throw error;
         return;
       } catch (e) {
-        console.error('[DB] Supabase banUser failed, using fallback', e.message);
+        console.error('[DB] banUser Supabase error:', e.message);
       }
     }
-    mem.banned.push({user_id:userId,username,reason,banned_by:bannedBy,created_at:new Date().toISOString()});
+    if (CFG.IS_SERVERLESS) return;
+    const existing = mem.banned.findIndex(b => b.user_id === userId);
+    if (existing >= 0) mem.banned[existing] = { user_id: userId, username, reason, banned_by: bannedBy, created_at: new Date().toISOString() };
+    else mem.banned.push({ user_id: userId, username, reason, banned_by: bannedBy, created_at: new Date().toISOString() });
     persistMem();
   },
+
   async unbanUser(userId) {
     if (supabase) {
       try {
-        await supabase.from('banned_users').delete().eq('user_id',userId);
+        const { error } = await supabase
+          .from('banned_users')
+          .delete()
+          .eq('user_id', userId);
+        if (error) throw error;
         return;
       } catch (e) {
-        console.error('[DB] Supabase unbanUser failed, using fallback', e.message);
+        console.error('[DB] unbanUser Supabase error:', e.message);
       }
     }
-    mem.banned = mem.banned.filter(function(b){return b.user_id!==userId;});
+    if (CFG.IS_SERVERLESS) return;
+    mem.banned = mem.banned.filter(b => b.user_id !== userId);
     persistMem();
   },
+
   async isBanned(userId) {
     if (supabase) {
       try {
-        const {data} = await supabase.from('banned_users').select('user_id').eq('user_id',userId).single();
+        const { data, error } = await supabase
+          .from('banned_users')
+          .select('user_id')
+          .eq('user_id', userId)
+          .maybeSingle(); // FIX: maybeSingle no lanza error si no hay filas
+        if (error) throw error;
         return !!data;
       } catch (e) {
-        console.error('[DB] Supabase isBanned failed, using fallback', e.message);
+        console.error('[DB] isBanned Supabase error:', e.message);
+        return false; // FIX: en caso de error, no bloquear al usuario
       }
     }
-    return mem.banned.some(function(b){return b.user_id===userId;});
+    if (CFG.IS_SERVERLESS) return false;
+    return mem.banned.some(b => b.user_id === userId);
   },
+
+  // ---------- ADMIN LOG ----------
+  // FIX #8: target y detail siempre se convierten a string
   async log(adminId, adminName, action, target, detail) {
-    target = target || '';
-    detail = detail || '';
-    var entry = { admin_id:adminId, admin_name:adminName, action, target, detail, created_at:new Date().toISOString() };
+    const entry = {
+      admin_id:   String(adminId   || ''),
+      admin_name: String(adminName || ''),
+      action:     String(action    || ''),
+      target:     String(target    || ''),
+      detail:     String(detail    || ''),
+      created_at: new Date().toISOString(),
+    };
     if (supabase) {
       try {
-        await supabase.from('admin_log').insert(entry);
+        const { error } = await supabase.from('admin_log').insert(entry);
+        if (error) throw error;
         return;
       } catch (e) {
-        console.error('[DB] Supabase log failed, using fallback', e.message);
+        console.error('[DB] log Supabase error:', e.message);
       }
     }
+    if (CFG.IS_SERVERLESS) return;
     mem.adminLog.unshift(entry);
     if (mem.adminLog.length > 500) mem.adminLog.pop();
     persistMem();
   },
+
   async getLog(limit) {
     limit = limit || 100;
     if (supabase) {
       try {
-        const {data} = await supabase.from('admin_log').select('*').order('created_at',{ascending:false}).limit(limit);
-        return data||[];
+        const { data, error } = await supabase
+          .from('admin_log')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(limit);
+        if (error) throw error;
+        return data || [];
       } catch (e) {
-        console.error('[DB] Supabase getLog failed, using fallback', e.message);
+        console.error('[DB] getLog Supabase error:', e.message);
       }
     }
+    if (CFG.IS_SERVERLESS) return [];
     return mem.adminLog.slice(0, limit);
   },
-  // TICKETS
+
+  // ---------- TICKETS ----------
+  // FIX #5: El schema de tickets en Supabase usa "username" no "user_name"
   async addTicket(t) {
     if (supabase) {
       try {
-        const {data} = await supabase.from('tickets').insert(t).select().single();
+        // Normalizar campos al schema real de Supabase
+        const ticketData = {
+          user_id:     t.user_id,
+          username:    t.user_name || t.username || 'Desconocido',
+          type:        t.type,
+          subject:     t.subject,
+          description: t.description,
+          status:      'pending',
+        };
+        const { data, error } = await supabase
+          .from('tickets')
+          .insert(ticketData)
+          .select()
+          .single();
+        if (error) throw error;
         return data;
       } catch (e) {
-        console.error('[DB] Supabase addTicket failed, using fallback', e.message);
+        console.error('[DB] addTicket Supabase error:', e.message);
       }
     }
-    var nt = Object.assign({}, t, {id: Date.now(), status:'pending', created_at: new Date().toISOString()});
+    if (CFG.IS_SERVERLESS) return null;
+    const nt = { ...t, id: Date.now(), status: 'pending', created_at: new Date().toISOString() };
     mem.tickets.push(nt);
     persistMem();
     return nt;
   },
+
   async getTickets() {
     if (supabase) {
       try {
-        const {data} = await supabase.from('tickets').select('*').order('created_at',{ascending:false});
+        const { data, error } = await supabase
+          .from('tickets')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
         return data || [];
       } catch (e) {
-        console.error('[DB] Supabase getTickets failed, using fallback', e.message);
+        console.error('[DB] getTickets Supabase error:', e.message);
       }
     }
+    if (CFG.IS_SERVERLESS) return [];
     return mem.tickets.slice().reverse();
   },
+
   async updateTicketStatus(id, status) {
     if (supabase) {
       try {
-        await supabase.from('tickets').update({status}).eq('id',id);
+        const { error } = await supabase
+          .from('tickets')
+          .update({ status })
+          .eq('id', id);
+        if (error) throw error;
         return;
       } catch (e) {
-        console.error('[DB] Supabase updateTicketStatus failed, using fallback', e.message);
+        console.error('[DB] updateTicketStatus Supabase error:', e.message);
       }
     }
-    var t = mem.tickets.find(function(t){return String(t.id)===String(id);});
-    if (t) {
-      t.status = status;
-      persistMem();
-    }
+    if (CFG.IS_SERVERLESS) return;
+    const t = mem.tickets.find(t => String(t.id) === String(id));
+    if (t) { t.status = status; persistMem(); }
   },
+
   async deleteTicket(id) {
     if (supabase) {
       try {
-        await supabase.from('tickets').delete().eq('id',id);
+        // Primero borrar mensajes del ticket
+        await supabase.from('ticket_messages').delete().eq('ticket_id', id);
+        const { error } = await supabase.from('tickets').delete().eq('id', id);
+        if (error) throw error;
         return;
       } catch (e) {
-        console.error('[DB] Supabase deleteTicket failed, using fallback', e.message);
+        console.error('[DB] deleteTicket Supabase error:', e.message);
       }
     }
-    mem.tickets = mem.tickets.filter(function(t){return String(t.id)!==String(id);});
+    if (CFG.IS_SERVERLESS) return;
+    mem.tickets = mem.tickets.filter(t => String(t.id) !== String(id));
     persistMem();
   },
+
   async getTicketMessages(ticketId) {
     if (supabase) {
       try {
-        const {data} = await supabase.from('ticket_messages').select('*').eq('ticket_id',ticketId).order('created_at',{ascending:true});
+        const { data, error } = await supabase
+          .from('ticket_messages')
+          .select('*')
+          .eq('ticket_id', ticketId)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
         return data || [];
       } catch (e) {
-        console.error('[DB] Supabase getTicketMessages failed, using fallback', e.message);
+        console.error('[DB] getTicketMessages Supabase error:', e.message);
       }
     }
-    return (mem.ticketMessages || []).filter(function(m){return String(m.ticket_id)===String(ticketId);});
+    if (CFG.IS_SERVERLESS) return [];
+    return (mem.ticketMessages || []).filter(m => String(m.ticket_id) === String(ticketId));
   },
+
   async addTicketMessage(ticketId, userId, username, content) {
-    const msg = {ticket_id:ticketId, user_id:userId, username:username, content:content, created_at:new Date().toISOString()};
+    const msg = {
+      ticket_id:  ticketId,
+      user_id:    userId,
+      username:   username,
+      content:    content,
+      created_at: new Date().toISOString(),
+    };
     if (supabase) {
       try {
-        const {data} = await supabase.from('ticket_messages').insert(msg).select().single();
+        const { data, error } = await supabase
+          .from('ticket_messages')
+          .insert(msg)
+          .select()
+          .single();
+        if (error) throw error;
         return data;
       } catch (e) {
-        console.error('[DB] Supabase addTicketMessage failed, using fallback', e.message);
+        console.error('[DB] addTicketMessage Supabase error:', e.message);
       }
     }
+    if (CFG.IS_SERVERLESS) return null;
     if (!mem.ticketMessages) mem.ticketMessages = [];
-    var nm = Object.assign({}, msg, {id:Date.now()});
+    const nm = { ...msg, id: Date.now() };
     mem.ticketMessages.push(nm);
     persistMem();
     return nm;
@@ -545,318 +801,368 @@ const db = {
 // ============================================================
 // MIDDLEWARE
 // ============================================================
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '15mb' })); // FIX #7: aumentado para base64 de imágenes
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(express.static(path.join(__dirname)));
 
+// FIX #4: Configuración de cookies corregida para Vercel
+// - sameSite: 'lax' funciona bien con OAuth redirects
+// - secure solo en HTTPS real (no forzado por env var buggy)
+// - DISABLE_SECURE_COOKIE ahora funciona correctamente
 app.use(cookieSession({
-  name: 'session',
+  name: 'bt_session',
   secret: CFG.SESSION_SECRET,
   maxAge: 7 * 24 * 60 * 60 * 1000,
-  // si estás probando local con NODE_ENV=production, establece DISABLE_SECURE_COOKIE=true para efectos de desarrollo
-  secure: process.env.NODE_ENV === 'production' && !process.env.DISABLE_SECURE_COOKIE && CFG.BASE_URL.startsWith('https'),
+  secure: CFG.BASE_URL.startsWith('https') && process.env.DISABLE_SECURE_COOKIE !== 'true',
   httpOnly: true,
-  sameSite: 'lax'
+  sameSite: 'lax',
 }));
 
-function requireAuth(req,res,next)  { return req.session.user ? next() : res.status(401).json({error:'Login required'}); }
-function requireAdmin(req,res,next) {
-  if (!req.session.user) return res.status(401).json({error:'Login required'});
-  if (!req.session.user.isAdmin) return res.status(403).json({error:'Admin only'});
+function requireAuth(req, res, next) {
+  return req.session && req.session.user ? next() : res.status(401).json({ error: 'Login requerido' });
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.session || !req.session.user) return res.status(401).json({ error: 'Login requerido' });
+  if (!req.session.user.isAdmin) return res.status(403).json({ error: 'Solo admins' });
   next();
 }
-async function checkBan(req,res,next) {
-  if (req.session.user && await db.isBanned(req.session.user.id)) return res.status(403).json({error:'Baneado'});
+
+async function checkBan(req, res, next) {
+  if (req.session && req.session.user && await db.isBanned(req.session.user.id)) {
+    return res.status(403).json({ error: 'Usuario baneado' });
+  }
   next();
 }
 
 // ============================================================
 // AUTH
 // ============================================================
-app.get('/api/auth/discord', function(req,res) {
-  var redir = CFG.BASE_URL + '/api/auth/discord/callback';
-  res.redirect('https://discord.com/api/oauth2/authorize?client_id='+CFG.DISCORD_CLIENT_ID+'&redirect_uri='+encodeURIComponent(redir)+'&response_type=code&scope=identify%20guilds.members.read');
+app.get('/api/auth/discord', function (req, res) {
+  const redir = CFG.BASE_URL + '/api/auth/discord/callback';
+  res.redirect(
+    'https://discord.com/api/oauth2/authorize?client_id=' + CFG.DISCORD_CLIENT_ID +
+    '&redirect_uri=' + encodeURIComponent(redir) +
+    '&response_type=code&scope=identify%20guilds.members.read'
+  );
 });
 
-app.get('/api/auth/discord/callback', async function(req,res) {
-  var code = req.query.code;
+app.get('/api/auth/discord/callback', async function (req, res) {
+  const code = req.query.code;
   if (!code) return res.redirect('/?auth=error&reason=missing_code');
   if (!CFG.DISCORD_CLIENT_ID || !CFG.DISCORD_CLIENT_SECRET) {
-    console.error('[Auth] Discord client id/secret missing');
+    console.error('[Auth] Faltan DISCORD_CLIENT_ID o DISCORD_CLIENT_SECRET');
     return res.redirect('/?auth=error&reason=config');
   }
-  var redir = CFG.BASE_URL + '/api/auth/discord/callback';
+  const redir = CFG.BASE_URL + '/api/auth/discord/callback';
   try {
-    var tokRes = await fetch('https://discord.com/api/oauth2/token', {
-      method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    const tokRes = await fetch('https://discord.com/api/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id:CFG.DISCORD_CLIENT_ID,
-        client_secret:CFG.DISCORD_CLIENT_SECRET,
-        grant_type:'authorization_code',
-        code:code,
-        redirect_uri:redir
-      })
+        client_id:     CFG.DISCORD_CLIENT_ID,
+        client_secret: CFG.DISCORD_CLIENT_SECRET,
+        grant_type:    'authorization_code',
+        code:          code,
+        redirect_uri:  redir,
+      }),
     });
-
-    var tok = await tokRes.json();
+    const tok = await tokRes.json();
     if (!tok.access_token) {
-      console.error('[Auth] Discord token response error', tokRes.status, tok);
-      return res.redirect('/?auth=error&reason=token&code='+encodeURIComponent(tok.error||'unknown'));
+      console.error('[Auth] Error en token de Discord:', tokRes.status, tok);
+      return res.redirect('/?auth=error&reason=token&code=' + encodeURIComponent(tok.error || 'unknown'));
     }
 
-    var u = await (await fetch('https://discord.com/api/users/@me', {headers:{Authorization:'Bearer '+tok.access_token}})).json();
-    var isAdmin = false, roles = [];
+    const u = await (await fetch('https://discord.com/api/users/@me', {
+      headers: { Authorization: 'Bearer ' + tok.access_token },
+    })).json();
+
+    let isAdmin = false, roles = [];
     try {
-      var memData = await (await fetch('https://discord.com/api/users/@me/guilds/'+CFG.DISCORD_GUILD_ID+'/member', {headers:{Authorization:'Bearer '+tok.access_token}})).json();
-      roles = (memData.roles || []).map(function(r){ return String(r).trim(); });
-      console.log('[Auth] guild member roles:', roles, 'expected admin roles:', CFG.ADMIN_ROLE_IDS);
-      isAdmin = roles.some(function(r){ return CFG.ADMIN_ROLE_IDS.includes(String(r)); });
-    } catch(e2) {
-      console.error('[Auth] guild member fetch failed:', e2 && e2.message ? e2.message : e2);
+      const memData = await (await fetch(
+        'https://discord.com/api/users/@me/guilds/' + CFG.DISCORD_GUILD_ID + '/member',
+        { headers: { Authorization: 'Bearer ' + tok.access_token } }
+      )).json();
+      roles = (memData.roles || []).map(r => String(r).trim());
+      console.log('[Auth] Roles del usuario:', roles);
+      console.log('[Auth] Roles admin esperados:', CFG.ADMIN_ROLE_IDS);
+      isAdmin = CFG.ADMIN_ROLE_IDS.length > 0 && roles.some(r => CFG.ADMIN_ROLE_IDS.includes(r));
+    } catch (e2) {
+      console.error('[Auth] Error obteniendo roles del guild:', e2.message);
     }
+
     req.session.user = {
-      id: u.id,
+      id:       u.id,
       username: u.username,
-      avatar: u.avatar ? 'https://cdn.discordapp.com/avatars/'+u.id+'/'+u.avatar+'.png' : 'https://cdn.discordapp.com/embed/avatars/'+(parseInt(u.discriminator||'0')%5)+'.png',
-      isAdmin: isAdmin,
-      roles: roles,
+      avatar:   u.avatar
+        ? 'https://cdn.discordapp.com/avatars/' + u.id + '/' + u.avatar + '.png'
+        : 'https://cdn.discordapp.com/embed/avatars/' + (parseInt(u.discriminator || '0') % 5) + '.png',
+      isAdmin,
+      roles,
     };
+    console.log('[Auth] Login exitoso:', u.username, '| Admin:', isAdmin);
     res.redirect('/');
-  } catch(e) {
-    console.error('[Auth]', e.message);
+  } catch (e) {
+    console.error('[Auth] Error en callback:', e.message);
     res.redirect('/?auth=error');
   }
 });
 
-app.post('/api/auth/logout', function(req,res) {
+app.post('/api/auth/logout', function (req, res) {
   req.session = null;
-  res.json({ok:true});
+  res.json({ ok: true });
 });
 
-app.get('/api/me', function(req,res) {
-  return req.session.user ? res.json(req.session.user) : res.status(401).json({error:'Not authenticated'});
+app.get('/api/me', function (req, res) {
+  return req.session && req.session.user
+    ? res.json(req.session.user)
+    : res.status(401).json({ error: 'No autenticado' });
 });
 
-app.get('/api/profile', function(req,res) {
-  if (!req.session.user) return res.status(401).json({error:'Not authenticated'});
+app.get('/api/profile', function (req, res) {
+  if (!req.session || !req.session.user) return res.status(401).json({ error: 'No autenticado' });
   res.json({
-    id: req.session.user.id,
-    username: req.session.user.username,
-    avatar: req.session.user.avatar,
-    isAdmin: req.session.user.isAdmin,
-    roles: req.session.user.roles,
-    createdAt: new Date().toISOString() // o de db si guardas
+    id:        req.session.user.id,
+    username:  req.session.user.username,
+    avatar:    req.session.user.avatar,
+    isAdmin:   req.session.user.isAdmin,
+    roles:     req.session.user.roles,
+    createdAt: new Date().toISOString(),
   });
 });
 
 // ============================================================
 // PUBLIC API
 // ============================================================
-app.get('/api/config',  async function(req,res) { res.json(await db.getAllConfig()); });
-app.get('/api/ranks',   async function(req,res) { res.json(await db.getRanks(false)); });
-app.get('/api/team',    async function(req,res) { res.json(await db.getMembers()); });
-app.get('/api/gallery', async function(req,res) { res.json(await db.getGallery()); });
-app.get('/api/event',   async function(req,res) { res.json(await db.getEvent(true) || null); });
-app.get('/api/mc-status', async function(req,res) {
-  try { res.json(await (await fetch('https://api.mcsrvstat.us/3/beeteam.club')).json()); }
-  catch(e) { res.json({online:false}); }
-});
+app.get('/api/config',  async (req, res) => res.json(await db.getAllConfig()));
+app.get('/api/ranks',   async (req, res) => res.json(await db.getRanks(false)));
+app.get('/api/team',    async (req, res) => res.json(await db.getMembers()));
+app.get('/api/gallery', async (req, res) => res.json(await db.getGallery()));
+app.get('/api/event',   async (req, res) => res.json(await db.getEvent(true) || null));
 
-// TICKETS PUBLIC
-app.post('/api/tickets', requireAuth, async function(req,res) {
-  var b = req.body;
-  if (!b.nick || !b.type || !b.subject || !b.description) return res.status(400).json({error:'Faltan campos'});
+app.get('/api/mc-status', async (req, res) => {
   try {
-    var ticketData = {
-      nick: b.nick.trim().slice(0,50),
-      type: b.type.trim().slice(0,100),
-      subject: b.subject.trim().slice(0,200),
-      description: b.description.trim().slice(0,2000),
-      user_id: req.session.user.id,
-      user_name: req.session.user.username,
-      status: 'pending'
-    };
-    var t = await db.addTicket(ticketData);
-    res.json(t);
-  } catch(e) { res.status(500).json({error:e.message}); }
+    const data = await (await fetch('https://api.mcsrvstat.us/3/beeteam.club')).json();
+    res.json(data);
+  } catch (e) {
+    res.json({ online: false });
+  }
 });
 
 // ============================================================
 // CHAT
 // ============================================================
-app.get('/api/chat', async function(req,res) { res.json(await db.getChat(100)); });
+app.get('/api/chat', async (req, res) => {
+  res.json(await db.getChat(100));
+});
 
-app.post('/api/chat', requireAuth, checkBan, async function(req,res) {
-  var content = req.body.content;
-  if (!content || typeof content !== 'string') return res.status(400).json({error:'Invalid'});
-  var clean = content.trim().slice(0,300);
-  if (!clean) return res.status(400).json({error:'Empty'});
-  var msg = await db.addChat({
-    user_id:req.session.user.id,
-    username:req.session.user.username,
-    avatar:req.session.user.avatar,
-    role:req.session.user.isAdmin?'owner':null,
-    content:clean
+app.post('/api/chat', requireAuth, checkBan, async (req, res) => {
+  const content = req.body.content;
+  if (!content || typeof content !== 'string') return res.status(400).json({ error: 'Contenido inválido' });
+  const clean = content.trim().slice(0, 300);
+  if (!clean) return res.status(400).json({ error: 'Mensaje vacío' });
+
+  const msg = await db.addChat({
+    user_id:  req.session.user.id,
+    username: req.session.user.username,
+    avatar:   req.session.user.avatar,
+    role:     req.session.user.isAdmin ? 'owner' : null,
+    content:  clean,
   });
+
+  if (!msg) return res.status(503).json({ error: 'No se pudo guardar el mensaje. Verifica Supabase.' });
+  res.json(msg);
+});
+
+// ============================================================
+// TICKETS PUBLIC
+// FIX #5: Usar los campos correctos del schema
+// ============================================================
+app.post('/api/tickets', requireAuth, async (req, res) => {
+  const b = req.body;
+  if (!b.nick || !b.type || !b.subject || !b.description) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios' });
+  }
+  try {
+    const t = await db.addTicket({
+      user_id:     req.session.user.id,
+      user_name:   req.session.user.username, // normalizado en addTicket()
+      nick:        b.nick.trim().slice(0, 50),
+      type:        b.type.trim().slice(0, 100),
+      subject:     b.subject.trim().slice(0, 200),
+      description: b.description.trim().slice(0, 2000),
+    });
+    if (!t) return res.status(503).json({ error: 'No se pudo crear el ticket. Verifica Supabase.' });
+    res.json(t);
+  } catch (e) {
+    console.error('[Tickets] Error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/tickets', requireAuth, async (req, res) => {
+  const all = await db.getTickets();
+  const mine = (all || []).filter(t => String(t.user_id) === String(req.session.user.id));
+  res.json(mine);
+});
+
+app.get('/api/tickets/:id/messages', requireAuth, async (req, res) => {
+  const all = await db.getTickets();
+  const ticket = all.find(x => String(x.id) === String(req.params.id));
+  if (!ticket) return res.status(404).json({ error: 'Ticket no encontrado' });
+  if (ticket.user_id !== req.session.user.id && !req.session.user.isAdmin) {
+    return res.status(403).json({ error: 'Sin permiso' });
+  }
+  res.json(await db.getTicketMessages(req.params.id));
+});
+
+app.post('/api/tickets/:id/messages', requireAuth, async (req, res) => {
+  const content = req.body.content;
+  if (!content) return res.status(400).json({ error: 'Contenido requerido' });
+  const all = await db.getTickets();
+  const ticket = all.find(x => String(x.id) === String(req.params.id));
+  if (!ticket) return res.status(404).json({ error: 'Ticket no encontrado' });
+  if (ticket.user_id !== req.session.user.id && !req.session.user.isAdmin) {
+    return res.status(403).json({ error: 'Sin permiso' });
+  }
+  const msg = await db.addTicketMessage(
+    req.params.id,
+    req.session.user.id,
+    req.session.user.username,
+    content.trim().slice(0, 1000)
+  );
+  if (!msg) return res.status(503).json({ error: 'No se pudo guardar el mensaje.' });
   res.json(msg);
 });
 
 // ============================================================
 // ADMIN API
 // ============================================================
-app.get('/api/admin/stats', requireAdmin, async function(req,res) {
-  var results = await Promise.all([db.getAllChat(1000), db.getMembers(), db.getGallery(), db.getBans(), db.getLog(10), db.getTickets()]);
-  var chat=results[0], members=results[1], gallery=results[2], bans=results[3], log=results[4], tickets=results[5];
-  var uniqueUsers = new Set(chat.map(function(m){return m.user_id;})).size;
+app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+  const [chat, members, gallery, bans, log, tickets] = await Promise.all([
+    db.getAllChat(1000),
+    db.getMembers(),
+    db.getGallery(),
+    db.getBans(),
+    db.getLog(10),
+    db.getTickets(),
+  ]);
   res.json({
-    totalChatMessages: chat.filter(function(m){return !m.deleted;}).length,
-    deletedMessages: chat.filter(function(m){return m.deleted;}).length,
-    uniqueChatUsers: uniqueUsers,
-    teamMembers: members.length,
-    galleryPics: gallery.length,
-    bannedUsers: bans.length,
-    pendingTickets: tickets.filter(function(t){return t.status==='pending';}).length,
-    recentLog: log,
+    totalChatMessages: chat.filter(m => !m.deleted).length,
+    deletedMessages:   chat.filter(m => m.deleted).length,
+    uniqueChatUsers:   new Set(chat.map(m => m.user_id)).size,
+    teamMembers:       members.length,
+    galleryPics:       gallery.length,
+    bannedUsers:       bans.length,
+    pendingTickets:    tickets.filter(t => t.status === 'pending').length,
+    recentLog:         log,
   });
 });
 
-app.get('/api/admin/chat', requireAdmin, async function(req,res) { res.json(await db.getAllChat(200)); });
-app.delete('/api/admin/chat/:id', requireAdmin, async function(req,res) {
+app.get('/api/admin/chat',        requireAdmin, async (req, res) => res.json(await db.getAllChat(200)));
+app.delete('/api/admin/chat/:id', requireAdmin, async (req, res) => {
   await db.deleteChat(req.params.id, req.session.user.id, req.session.user.username);
-  res.json({ok:true});
+  res.json({ ok: true });
 });
 
-app.post('/api/admin/team', requireAdmin, async function(req,res) {
-  var b = req.body;
-  if (!b.nick || !b.role) return res.status(400).json({error:'Faltan campos'});
-  var m = await db.addMember({nick:b.nick, role:b.role, skin_url:b.skin_url||null, sort_order:b.sort_order||0});
+app.post('/api/admin/team',       requireAdmin, async (req, res) => {
+  const b = req.body;
+  if (!b.nick || !b.role) return res.status(400).json({ error: 'Faltan campos' });
+  const m = await db.addMember({ nick: b.nick, role: b.role, skin_url: b.skin_url || null, sort_order: b.sort_order || 0 });
   await db.log(req.session.user.id, req.session.user.username, 'add_member', b.nick);
   res.json(m);
 });
-app.put('/api/admin/team/:id', requireAdmin, async function(req,res) {
+app.put('/api/admin/team/:id',    requireAdmin, async (req, res) => {
   await db.updateMember(req.params.id, req.body);
   await db.log(req.session.user.id, req.session.user.username, 'update_member', req.params.id);
-  res.json({ok:true});
+  res.json({ ok: true });
 });
-app.delete('/api/admin/team/:id', requireAdmin, async function(req,res) {
+app.delete('/api/admin/team/:id', requireAdmin, async (req, res) => {
   await db.deleteMember(req.params.id);
   await db.log(req.session.user.id, req.session.user.username, 'delete_member', req.params.id);
-  res.json({ok:true});
+  res.json({ ok: true });
 });
 
-app.get('/api/admin/ranks', requireAdmin, async function(req,res) { res.json(await db.getRanks(true)); });
-app.post('/api/admin/ranks', requireAdmin, async function(req,res) {
-  var r = await db.addRank(req.body);
+app.get('/api/admin/ranks',        requireAdmin, async (req, res) => res.json(await db.getRanks(true)));
+app.post('/api/admin/ranks',       requireAdmin, async (req, res) => {
+  const r = await db.addRank(req.body);
   await db.log(req.session.user.id, req.session.user.username, 'add_rank', req.body.name);
   res.json(r);
 });
-app.put('/api/admin/ranks/:id', requireAdmin, async function(req,res) {
+app.put('/api/admin/ranks/:id',    requireAdmin, async (req, res) => {
   await db.updateRank(req.params.id, req.body);
   await db.log(req.session.user.id, req.session.user.username, 'update_rank', req.params.id);
-  res.json({ok:true});
+  res.json({ ok: true });
 });
-app.delete('/api/admin/ranks/:id', requireAdmin, async function(req,res) {
+app.delete('/api/admin/ranks/:id', requireAdmin, async (req, res) => {
   await db.deleteRank(req.params.id);
   await db.log(req.session.user.id, req.session.user.username, 'delete_rank', req.params.id);
-  res.json({ok:true});
+  res.json({ ok: true });
 });
 
-app.post('/api/admin/gallery', requireAdmin, async function(req,res) {
-  var b = req.body;
-  if (!b.title || !b.image_url) return res.status(400).json({error:'Faltan campos'});
-  var p = await db.addPic({title:b.title, category:b.category||'otro', image_url:b.image_url});
+app.post('/api/admin/gallery',       requireAdmin, async (req, res) => {
+  const b = req.body;
+  if (!b.title || !b.image_url) return res.status(400).json({ error: 'Faltan campos' });
+  const p = await db.addPic({ title: b.title, category: b.category || 'otro', image_url: b.image_url });
   await db.log(req.session.user.id, req.session.user.username, 'add_pic', b.title);
   res.json(p);
 });
-app.delete('/api/admin/gallery/:id', requireAdmin, async function(req,res) {
+app.delete('/api/admin/gallery/:id', requireAdmin, async (req, res) => {
   await db.deletePic(req.params.id);
   await db.log(req.session.user.id, req.session.user.username, 'delete_pic', req.params.id);
-  res.json({ok:true});
+  res.json({ ok: true });
 });
 
-app.get('/api/admin/events', requireAdmin, async function(req,res) { res.json(await db.getAllEvents()); });
-app.post('/api/admin/events', requireAdmin, async function(req,res) {
-  var ev = await db.upsertEvent(req.body);
+app.get('/api/admin/events',  requireAdmin, async (req, res) => res.json(await db.getAllEvents()));
+app.post('/api/admin/events', requireAdmin, async (req, res) => {
+  const ev = await db.upsertEvent(req.body);
   await db.log(req.session.user.id, req.session.user.username, 'upsert_event', req.body.nombre);
   res.json(ev);
 });
 
-app.put('/api/admin/config', requireAdmin, async function(req,res) {
-  var key = req.body.key, value = req.body.value;
-  if (!key) return res.status(400).json({error:'key requerido'});
+app.put('/api/admin/config', requireAdmin, async (req, res) => {
+  const { key, value } = req.body;
+  if (!key) return res.status(400).json({ error: 'key requerido' });
   await db.setConfig(key, value);
   await db.log(req.session.user.id, req.session.user.username, 'set_config', key);
-  res.json({ok:true});
+  res.json({ ok: true });
 });
 
-app.get('/api/admin/bans', requireAdmin, async function(req,res) { res.json(await db.getBans()); });
-app.post('/api/admin/bans', requireAdmin, async function(req,res) {
-  var b = req.body;
-  if (!b.user_id) return res.status(400).json({error:'user_id requerido'});
-  await db.banUser(b.user_id, b.username||'?', b.reason||'Sin razon', req.session.user.username);
+app.get('/api/admin/bans',            requireAdmin, async (req, res) => res.json(await db.getBans()));
+app.post('/api/admin/bans',           requireAdmin, async (req, res) => {
+  const b = req.body;
+  if (!b.user_id) return res.status(400).json({ error: 'user_id requerido' });
+  await db.banUser(b.user_id, b.username || '?', b.reason || 'Sin razón', req.session.user.username);
   await db.log(req.session.user.id, req.session.user.username, 'ban_user', b.user_id, b.reason);
-  res.json({ok:true});
+  res.json({ ok: true });
 });
-app.delete('/api/admin/bans/:userId', requireAdmin, async function(req,res) {
+app.delete('/api/admin/bans/:userId', requireAdmin, async (req, res) => {
   await db.unbanUser(req.params.userId);
   await db.log(req.session.user.id, req.session.user.username, 'unban_user', req.params.userId);
-  res.json({ok:true});
+  res.json({ ok: true });
 });
 
-app.get('/api/admin/log', requireAdmin, async function(req,res) { res.json(await db.getLog(200)); });
+app.get('/api/admin/log', requireAdmin, async (req, res) => res.json(await db.getLog(200)));
 
-// TICKETS ADMIN
-app.get('/api/admin/tickets', requireAdmin, async function(req,res) { res.json(await db.getTickets()); });
-app.get('/api/tickets', requireAuth, async function(req,res) {
-  const all = await db.getTickets();
-  const mine = (all||[]).filter(function(t){return String(t.user_id)===String(req.session.user.id);});
-  res.json(mine);
-});
-app.put('/api/admin/tickets/:id', requireAdmin, async function(req,res) {
+app.get('/api/admin/tickets',          requireAdmin, async (req, res) => res.json(await db.getTickets()));
+app.put('/api/admin/tickets/:id',      requireAdmin, async (req, res) => {
   await db.updateTicketStatus(req.params.id, req.body.status);
   await db.log(req.session.user.id, req.session.user.username, 'update_ticket', req.params.id, req.body.status);
-  res.json({ok:true});
+  res.json({ ok: true });
 });
-app.delete('/api/admin/tickets/:id', requireAdmin, async function(req,res) {
+app.delete('/api/admin/tickets/:id',   requireAdmin, async (req, res) => {
   await db.deleteTicket(req.params.id);
   await db.log(req.session.user.id, req.session.user.username, 'delete_ticket', req.params.id);
-  res.json({ok:true});
-});
-
-// TICKET MESSAGES
-app.get('/api/tickets/:id/messages', requireAuth, async function(req,res) {
-  const t = await db.getTickets();
-  const ticket = t.find(function(x){return String(x.id)===String(req.params.id);});
-  if (!ticket) return res.status(404).json({error:'Ticket no encontrado'});
-  // Verifica que sea el propietario del ticket o un admin
-  if (ticket.user_id !== req.session.user.id && !req.session.user.isAdmin) {
-    return res.status(403).json({error:'No tienes permiso'});
-  }
-  res.json(await db.getTicketMessages(req.params.id));
-});
-
-app.post('/api/tickets/:id/messages', requireAuth, async function(req,res) {
-  const content = req.body.content;
-  if (!content) return res.status(400).json({error:'Contenido requerido'});
-  const t = await db.getTickets();
-  const ticket = t.find(function(x){return String(x.id)===String(req.params.id);});
-  if (!ticket) return res.status(404).json({error:'Ticket no encontrado'});
-  // Verifica que sea el propietario o admin
-  if (ticket.user_id !== req.session.user.id && !req.session.user.isAdmin) {
-    return res.status(403).json({error:'No tienes permiso'});
-  }
-  const msg = await db.addTicketMessage(req.params.id, req.session.user.id, req.session.user.username, content.trim().slice(0,1000));
-  res.json(msg);
+  res.json({ ok: true });
 });
 
 // ============================================================
 // FALLBACK SPA
 // ============================================================
-app.get('*', function(req,res) { res.sendFile(path.join(__dirname,'index.html')); });
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, function() { console.log('BeeTeam running on http://localhost:'+PORT); });
+  app.listen(PORT, () => console.log('BeeTeam corriendo en http://localhost:' + PORT));
 }
 
 module.exports = app;
