@@ -48,10 +48,22 @@ if (CFG.SUPABASE_URL && CFG.SUPABASE_SERVICE_KEY) {
 }
 
 const fs = require('fs');
-const SHADOW_PATH = path.join(__dirname, 'db_persistence');
-if (!fs.existsSync(SHADOW_PATH)) fs.mkdirSync(SHADOW_PATH, { recursive: true });
+const os = require('os');
+let persistenceEnabled = true;
+let SHADOW_PATH = path.join(__dirname, 'db_persistence');
+if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  // En funciones serverless, /tmp es el único directorio escribible
+  SHADOW_PATH = path.join(os.tmpdir(), 'beeteam_db_persistence');
+}
+try {
+  if (!fs.existsSync(SHADOW_PATH)) fs.mkdirSync(SHADOW_PATH, { recursive: true });
+} catch (e) {
+  console.warn('[DB] persistence disabled, unable to create', SHADOW_PATH, e.message);
+  persistenceEnabled = false;
+}
 
 function loadShadow(name, fallback) {
+  if (!persistenceEnabled) return fallback;
   try {
     const p = path.join(SHADOW_PATH, name + '.json');
     if (!fs.existsSync(p)) return fallback;
@@ -62,10 +74,12 @@ function loadShadow(name, fallback) {
   }
 }
 function saveShadow(name, data) {
+  if (!persistenceEnabled) return;
   try {
     fs.writeFileSync(path.join(SHADOW_PATH, name + '.json'), JSON.stringify(data, null, 2), 'utf8');
   } catch (e) {
     console.error('[DB] saveShadow error', name, e.message);
+    persistenceEnabled = false;
   }
 }
 
