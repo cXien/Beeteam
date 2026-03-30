@@ -1,3 +1,7 @@
+/* ============================================================
+   BEETEAM — app.js v3
+   Con tickets reales + login arreglado
+============================================================ */
 
 // ============================================================
 // STATE
@@ -174,7 +178,7 @@ function logout(){
 }
 
 // ============================================================
-// SITE CONFIG (logo, video)
+// SITE CONFIG
 // ============================================================
 async function loadSiteConfig(){
   try {
@@ -412,7 +416,7 @@ async function sendChatMessage(){
 })();
 
 // ============================================================
-// LOGO / VIDEO UPLOAD (Dashboard)
+// LOGO / VIDEO UPLOAD
 // ============================================================
 function handleLogoUpload(input){
   if(!input.files[0])return;
@@ -466,10 +470,11 @@ function switchTab(tabId,btn){
   if(tabId==='galeria')     loadAdminGallery();
   if(tabId==='bans')        loadAdminBans();
   if(tabId==='log')         loadAdminLog();
+  if(tabId==='tickets')     loadAdminTickets();
 }
 
 // ============================================================
-// ADMIN — STATS (Overview)
+// ADMIN — STATS
 // ============================================================
 async function loadAdminStats(){
   const panel=document.getElementById('tab-overview');
@@ -499,6 +504,10 @@ async function loadAdminStats(){
           <div class="admin-stat-num">${s.galleryPics}</div>
           <div class="admin-stat-label">Fotos en galería</div>
         </div>
+        <div class="admin-stat-card">
+          <div class="admin-stat-num">${s.pendingTickets}</div>
+          <div class="admin-stat-label">Tickets pendientes</div>
+        </div>
         <div class="admin-stat-card red">
           <div class="admin-stat-num">${s.bannedUsers}</div>
           <div class="admin-stat-label">Usuarios baneados</div>
@@ -518,7 +527,7 @@ async function loadAdminStats(){
 }
 
 // ============================================================
-// ADMIN — CHAT MODERATION
+// ADMIN — CHAT
 // ============================================================
 async function loadAdminChat(){
   const panel=document.getElementById('tab-chat');
@@ -871,19 +880,85 @@ async function loadAdminLog(){
 }
 
 // ============================================================
+// ADMIN — TICKETS
+// ============================================================
+async function loadAdminTickets(){
+  const list=document.getElementById('adminTicketsList');
+  if(!list)return;
+  list.innerHTML='<div style="color:var(--text-dim);padding:16px">Cargando...</div>';
+  try{
+    const tickets=await api('/api/admin/tickets');
+    if(!tickets.length){
+      list.innerHTML='<p style="color:var(--text-dim);padding:16px">No hay tickets aún.</p>';
+      return;
+    }
+    const statusColor={pending:'var(--orange)',open:'#57F287',closed:'var(--text-dim)',rejected:'#ff7070'};
+    const statusLabel={pending:'Pendiente',open:'Abierto',closed:'Cerrado',rejected:'Rechazado'};
+    list.innerHTML=tickets.map(t=>`
+      <div class="admin-ticket-row" id="ticket-${t.id}">
+        <div class="admin-ticket-header">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span class="admin-ticket-nick">${esc(t.nick)}</span>
+            <span class="admin-ticket-type">${esc(t.type)}</span>
+            <span class="admin-ticket-status" style="color:${statusColor[t.status]||'var(--text-dim)'}">
+              ${statusLabel[t.status]||t.status}
+            </span>
+            <span style="font-size:0.72rem;color:var(--text-dim)">${fmtDate(t.created_at)}</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <select class="inline-select" style="font-size:0.78rem;padding:4px 8px"
+              onchange="adminUpdateTicket(${t.id},this.value)">
+              <option value="pending"  ${t.status==='pending' ?'selected':''}>Pendiente</option>
+              <option value="open"     ${t.status==='open'    ?'selected':''}>Abierto</option>
+              <option value="closed"   ${t.status==='closed'  ?'selected':''}>Cerrado</option>
+              <option value="rejected" ${t.status==='rejected'?'selected':''}>Rechazado</option>
+            </select>
+            <button class="admin-action-btn del" onclick="adminDeleteTicket(${t.id})">Borrar</button>
+          </div>
+        </div>
+        <div class="admin-ticket-subject">${esc(t.subject)}</div>
+        <div class="admin-ticket-desc">${esc(t.description)}</div>
+      </div>`).join('');
+  }catch(e){
+    list.innerHTML=`<p style="color:var(--orange);padding:16px">Error: ${e.message}</p>`;
+  }
+}
+async function adminUpdateTicket(id,status){
+  try{
+    await api('/api/admin/tickets/'+id,{method:'PUT',body:JSON.stringify({status})});
+    toast('Estado actualizado','ok');
+  }catch(e){toast(e.message,'error');}
+}
+async function adminDeleteTicket(id){
+  if(!confirm('Eliminar este ticket?'))return;
+  try{
+    await api('/api/admin/tickets/'+id,{method:'DELETE'});
+    toast('Ticket eliminado','ok');
+    loadAdminTickets();
+  }catch(e){toast(e.message,'error');}
+}
+
+// ============================================================
+// TICKETS — SUBMIT
+// ============================================================
+async function submitTicket(){
+  const nick    =document.getElementById('ticketNick').value.trim();
+  const type    =document.getElementById('ticketType').value;
+  const subject =document.getElementById('ticketSubject').value.trim();
+  const desc    =document.getElementById('ticketDesc').value.trim();
+  if(!nick||!type||!subject||!desc){alert('Completa todos los campos.');return;}
+  try{
+    await api('/api/tickets',{method:'POST',body:JSON.stringify({nick,type,subject,description:desc})});
+    ['ticketNick','ticketType','ticketSubject','ticketDesc'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('ticketModal').classList.add('open');
+  }catch(e){toast(e.message,'error');}
+}
+
+// ============================================================
 // MODALS
 // ============================================================
 function openBuyModal(name,price){document.getElementById('modalRankName').textContent=name;document.getElementById('modalPrice').textContent=price;document.getElementById('buyModal').classList.add('open');}
 function closeBuyModal(e){if(!e||e.target.id==='buyModal'||e.target.classList.contains('modal-close'))document.getElementById('buyModal').classList.remove('open');}
-function submitTicket(){
-  const nick=document.getElementById('ticketNick').value.trim();
-  const type=document.getElementById('ticketType').value;
-  const subj=document.getElementById('ticketSubject').value.trim();
-  const desc=document.getElementById('ticketDesc').value.trim();
-  if(!nick||!type||!subj||!desc){alert('Completa todos los campos.');return;}
-  ['ticketNick','ticketType','ticketSubject','ticketDesc'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('ticketModal').classList.add('open');
-}
 function closeTicketModal(e){if(!e||e.target.id==='ticketModal'||e.target.classList.contains('modal-close'))document.getElementById('ticketModal').classList.remove('open');}
 
 // ============================================================
