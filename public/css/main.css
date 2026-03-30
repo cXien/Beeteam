@@ -506,6 +506,7 @@ footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 6
 .modal-overlay.open { opacity: 1; pointer-events: all; }
 .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px; padding: 40px; max-width: 480px; width: 90%; transform: scale(0.95) translateY(10px); transition: transform .3s; position: relative; }
 .modal-overlay.open .modal { transform: scale(1) translateY(0); }
+body.modal-open { overflow: hidden; }
 .modal h3 { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800; color: var(--white); margin-bottom: 8px; }
 .modal p { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 24px; line-height: 1.6; }
 .modal-close { position: absolute; top: 16px; right: 20px; background: none; border: none; color: var(--text-dim); font-size: 1.2rem; cursor: pointer; transition: color .2s; }

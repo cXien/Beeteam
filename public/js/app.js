@@ -192,6 +192,17 @@ function applyUserUI(){
 
   if(currentUser){
     startChatPoll();
+  } else {
+    stopChatPoll();
+    const box = document.getElementById('chatBox');
+    if(box) box.innerHTML = '<div class="chat-loading">Inicia sesión para ver el chat.</div>';
+  }
+}
+
+function stopChatPoll(){
+  if(chatPollTimer){
+    clearInterval(chatPollTimer);
+    chatPollTimer = null;
   }
 }
 
@@ -258,8 +269,15 @@ function renderShop(){
       <div class="rank-name"><span>${esc(r.name_highlight)}</span> ${esc(r.name.replace(r.name_highlight,'').trim())}</div>
       <div class="rank-price">${esc(r.price)} <small>USD</small></div>
       <ul class="rank-perks">${(r.perks||[]).map(p=>`<li>${esc(p)}</li>`).join('')}</ul>
-      <button class="rank-btn" onclick="openBuyModal('${esc(r.name)}','${esc(r.price)}')">Comprar ahora</button>
+      <button class="rank-btn" data-rank="${esc(r.name)}" data-price="${esc(r.price)}">Comprar ahora</button>
     </div>`).join('');
+  grid.querySelectorAll('.rank-btn').forEach(btn => {
+    btn.addEventListener('click', event => {
+      const rank = btn.getAttribute('data-rank');
+      const price = btn.getAttribute('data-price');
+      openBuyModal(rank, price);
+    });
+  });
   initScrollReveal();
 }
 
@@ -1003,9 +1021,32 @@ async function submitTicket(){
 // ============================================================
 // MODALS
 // ============================================================
-function openBuyModal(name,price){document.getElementById('modalRankName').textContent=name;document.getElementById('modalPrice').textContent=price;document.getElementById('buyModal').classList.add('open');}
-function closeBuyModal(e){if(!e||e.target.id==='buyModal'||e.target.classList.contains('modal-close'))document.getElementById('buyModal').classList.remove('open');}
-function closeTicketModal(e){if(!e||e.target.id==='ticketModal'||e.target.classList.contains('modal-close'))document.getElementById('ticketModal').classList.remove('open');}
+function openBuyModal(name,price){
+  const modal=document.getElementById('buyModal');
+  const rankEl=document.getElementById('modalRankName');
+  const priceEl=document.getElementById('modalPrice');
+  if(!modal||!rankEl||!priceEl){console.error('Buy modal element missing');return;}
+  rankEl.textContent=name;
+  priceEl.textContent=price;
+  modal.classList.add('open');
+  document.body.classList.add('modal-open');
+}
+function closeBuyModal(e){
+  const modal=document.getElementById('buyModal');
+  if(!modal) return;
+  if(!e || e.target.id==='buyModal' || e.target.classList.contains('modal-close')){
+    modal.classList.remove('open');
+    document.body.classList.remove('modal-open');
+  }
+}
+function closeTicketModal(e){
+  const modal=document.getElementById('ticketModal');
+  if(!modal) return;
+  if(!e || e.target.id==='ticketModal' || e.target.classList.contains('modal-close')){
+    modal.classList.remove('open');
+    document.body.classList.remove('modal-open');
+  }
+}
 
 // ============================================================
 // KONAMI
