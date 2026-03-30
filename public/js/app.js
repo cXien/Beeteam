@@ -145,7 +145,14 @@ async function loadUser(){
   try {
     currentUser=await api('/api/me');
     applyUserUI();
-  } catch(e){ /* not logged in */ }
+  } catch(e){
+    const query = new URLSearchParams(window.location.search);
+    if (query.get('auth') === 'error') {
+      const reason = query.get('reason') || 'unknown';
+      toast('Error en login de Discord: ' + reason, 'error');
+      console.error('[Auth][Client]', reason, query.get('code'));
+    }
+  }
 }
 
 function applyUserUI(){

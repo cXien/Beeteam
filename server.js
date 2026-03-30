@@ -21,10 +21,18 @@ const CFG = {
   DISCORD_GUILD_ID:      process.env.DISCORD_GUILD_ID      || '',
   ADMIN_ROLE_IDS:        (process.env.ADMIN_ROLE_IDS || '').split(',').filter(Boolean),
   SESSION_SECRET:        process.env.SESSION_SECRET        || 'dev-secret-change-me',
-  BASE_URL:              process.env.BASE_URL              || 'http://localhost:3000',
+  BASE_URL:              (process.env.BASE_URL || 'http://localhost:3000').replace(/\/$/, ''),
   SUPABASE_URL:          process.env.SUPABASE_URL          || '',
   SUPABASE_SERVICE_KEY:  process.env.SUPABASE_SERVICE_KEY  || '',
 };
+
+console.log('[CONFIG] BASE_URL=', CFG.BASE_URL);
+if (!CFG.DISCORD_CLIENT_ID || !CFG.DISCORD_CLIENT_SECRET) {
+  console.warn('[CONFIG] DISCORD_CLIENT_ID or DISCORD_CLIENT_SECRET is missing. Discord login will fail.');
+}
+if (!CFG.DISCORD_GUILD_ID) {
+  console.warn('[CONFIG] DISCORD_GUILD_ID is missing. Guild role checks may fail.');
+}
 
 // ============================================================
 // SUPABASE CLIENT
@@ -277,7 +285,11 @@ app.get('/api/auth/discord', function(req,res) {
 
 app.get('/api/auth/discord/callback', async function(req,res) {
   var code = req.query.code;
-  if (!code) return res.redirect('/?auth=error');
+  if (!code) return res.redirect('/?auth=error&reason=missing_code');
+  if (!CFG.DISCORD_CLIENT_ID || !CFG.DISCORD_CLIENT_SECRET) {
+    console.error('[Auth] Discord client id/secret missing');
+    return res.redirect('/?auth=error&reason=config');
+  }
   var redir = CFG.BASE_URL + '/api/auth/discord/callback';
   try {
     var tokRes = await fetch('https://discord.com/api/oauth2/token', {
@@ -291,8 +303,13 @@ app.get('/api/auth/discord/callback', async function(req,res) {
         redirect_uri:redir
       })
     });
+
     var tok = await tokRes.json();
-    if (!tok.access_token) throw new Error('No token');
+    if (!tok.access_token) {
+      console.error('[Auth] Discord token response error', tokRes.status, tok);
+      return res.redirect('/?auth=error&reason=token&code='+encodeURIComponent(tok.error||'unknown'));
+    }
+
     var u = await (await fetch('https://discord.com/api/users/@me', {headers:{Authorization:'Bearer '+tok.access_token}})).json();
     var isAdmin = false, roles = [];
     try {
