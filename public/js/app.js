@@ -503,11 +503,25 @@ function handleLogoUpload(input){
 }
 function handleVideoUpload(input){
   if(!input.files[0])return;
-  const url=URL.createObjectURL(input.files[0]);
+  const file=input.files[0];
+  const url=URL.createObjectURL(file);
   const vid=document.getElementById('heroBgVideo');
   if(vid){vid.src=url;vid.style.display='block';vid.load();vid.play().catch(()=>{});}
   const prev=document.getElementById('videoPreviewEl');if(prev)prev.src=url;
   const wrap=document.getElementById('videoPreviewWrap');if(wrap)wrap.style.display='block';
+
+  // Guardar URL de video en configuración para persistencia tras refrescar
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      await api('/api/admin/config',{method:'PUT',body:JSON.stringify({key:'video_url',value:e.target.result})});
+      toast('Video de fondo guardado','ok');
+    }catch(err){
+      console.error('Error guardando video de fondo', err);
+      toast('Error guardando video de fondo','error');
+    }
+  };
+  reader.readAsDataURL(file);
 }
 
 // ============================================================
