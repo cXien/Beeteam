@@ -123,15 +123,23 @@ const db = {
   async getChat(limit) {
     limit = limit || 100;
     if (supabase) {
-      const {data} = await supabase.from('chat_messages').select('*').eq('deleted',false).order('created_at',{ascending:true}).limit(limit);
-      return data || [];
+      try {
+        const {data} = await supabase.from('chat_messages').select('*').eq('deleted',false).order('created_at',{ascending:true}).limit(limit);
+        return data || [];
+      } catch (e) {
+        console.error('[DB] Supabase getChat failed, using fallback', e.message);
+      }
     }
     return mem.chat.filter(function(m){return !m.deleted;}).slice(-limit);
   },
   async addChat(msg) {
     if (supabase) {
-      const {data} = await supabase.from('chat_messages').insert(msg).select().single();
-      return data;
+      try {
+        const {data} = await supabase.from('chat_messages').insert(msg).select().single();
+        return data;
+      } catch (e) {
+        console.error('[DB] Supabase addChat failed, using fallback', e.message);
+      }
     }
     const m = Object.assign({}, msg, {id: Date.now().toString(), created_at: new Date().toISOString()});
     mem.chat.push(m);
@@ -141,9 +149,13 @@ const db = {
   },
   async deleteChat(id, adminId, adminName) {
     if (supabase) {
-      await supabase.from('chat_messages').update({deleted:true, deleted_by:adminId, deleted_at:new Date().toISOString()}).eq('id',id);
-      await this.log(adminId, adminName, 'delete_chat', 'msg:'+id);
-      return;
+      try {
+        await supabase.from('chat_messages').update({deleted:true, deleted_by:adminId, deleted_at:new Date().toISOString()}).eq('id',id);
+        await this.log(adminId, adminName, 'delete_chat', 'msg:'+id);
+        return;
+      } catch (e) {
+        console.error('[DB] Supabase deleteChat failed, using fallback', e.message);
+      }
     }
     var m = mem.chat.find(function(m){return String(m.id)===String(id);});
     if (m) { m.deleted=true; m.deleted_by=adminId; }
@@ -152,22 +164,34 @@ const db = {
   async getAllChat(limit) {
     limit = limit || 200;
     if (supabase) {
-      const {data} = await supabase.from('chat_messages').select('*').order('created_at',{ascending:false}).limit(limit);
-      return data || [];
+      try {
+        const {data} = await supabase.from('chat_messages').select('*').order('created_at',{ascending:false}).limit(limit);
+        return data || [];
+      } catch (e) {
+        console.error('[DB] Supabase getAllChat failed, using fallback', e.message);
+      }
     }
     return mem.chat.slice().reverse().slice(0, limit);
   },
   async getMembers() {
     if (supabase) {
-      const {data} = await supabase.from('team_members').select('*').order('sort_order');
-      return data || [];
+      try {
+        const {data} = await supabase.from('team_members').select('*').order('sort_order');
+        return data || [];
+      } catch (e) {
+        console.error('[DB] Supabase getMembers failed, using fallback', e.message);
+      }
     }
     return mem.members;
   },
   async addMember(m) {
     if (supabase) {
-      const {data} = await supabase.from('team_members').insert(m).select().single();
-      return data;
+      try {
+        const {data} = await supabase.from('team_members').insert(m).select().single();
+        return data;
+      } catch (e) {
+        console.error('[DB] Supabase addMember failed, using fallback', e.message);
+      }
     }
     var nm = Object.assign({}, m, {id: Date.now(), created_at: new Date().toISOString()});
     mem.members.push(nm);
@@ -175,121 +199,269 @@ const db = {
     return nm;
   },
   async updateMember(id, data) {
-    if (supabase) { await supabase.from('team_members').update(data).eq('id',id); return; }
+    if (supabase) {
+      try {
+        await supabase.from('team_members').update(data).eq('id',id);
+        return;
+      } catch (e) {
+        console.error('[DB] Supabase updateMember failed, using fallback', e.message);
+      }
+    }
     var m = mem.members.find(function(m){return String(m.id)===String(id);});
     if (m) Object.assign(m, data);
     persistMem();
   },
   async deleteMember(id) {
-    if (supabase) { await supabase.from('team_members').delete().eq('id',id); return; }
+    if (supabase) {
+      try {
+        await supabase.from('team_members').delete().eq('id',id);
+        return;
+      } catch (e) {
+        console.error('[DB] Supabase deleteMember failed, using fallback', e.message);
+      }
+    }
     mem.members = mem.members.filter(function(m){return String(m.id)!==String(id);});
     persistMem();
   },
   async getRanks(adminMode) {
     if (supabase) {
-      var q = supabase.from('ranks').select('*').order('sort_order');
-      if (!adminMode) q = q.eq('active',true);
-      const {data} = await q;
-      return data || [];
+      try {
+        var q = supabase.from('ranks').select('*').order('sort_order');
+        if (!adminMode) q = q.eq('active',true);
+        const {data} = await q;
+        return data || [];
+      } catch (e) {
+        console.error('[DB] Supabase getRanks failed, using fallback', e.message);
+      }
     }
     return adminMode ? mem.ranks : mem.ranks.filter(function(r){return r.active;});
   },
   async addRank(r) {
-    if (supabase) { const {data} = await supabase.from('ranks').insert(r).select().single(); return data; }
+    if (supabase) {
+      try {
+        const {data} = await supabase.from('ranks').insert(r).select().single();
+        return data;
+      } catch (e) {
+        console.error('[DB] Supabase addRank failed, using fallback', e.message);
+      }
+    }
     var nr = Object.assign({}, r, {id: Date.now()}); mem.ranks.push(nr); persistMem(); return nr;
   },
   async updateRank(id, data) {
-    if (supabase) { await supabase.from('ranks').update(data).eq('id',id); return; }
+    if (supabase) {
+      try {
+        await supabase.from('ranks').update(data).eq('id',id);
+        return;
+      } catch (e) {
+        console.error('[DB] Supabase updateRank failed, using fallback', e.message);
+      }
+    }
     var r = mem.ranks.find(function(r){return String(r.id)===String(id);});
     if (r) Object.assign(r, data);
     persistMem();
   },
   async deleteRank(id) {
-    if (supabase) { await supabase.from('ranks').delete().eq('id',id); return; }
+    if (supabase) {
+      try {
+        await supabase.from('ranks').delete().eq('id',id);
+        return;
+      } catch (e) {
+        console.error('[DB] Supabase deleteRank failed, using fallback', e.message);
+      }
+    }
     mem.ranks = mem.ranks.filter(function(r){return String(r.id)!==String(id);});
     persistMem();
   },
   async getGallery() {
-    if (supabase) { const {data} = await supabase.from('gallery_pics').select('*').order('created_at',{ascending:false}); return data||[]; }
+    if (supabase) {
+      try {
+        const {data} = await supabase.from('gallery_pics').select('*').order('created_at',{ascending:false});
+        return data||[];
+      } catch (e) {
+        console.error('[DB] Supabase getGallery failed, using fallback', e.message);
+      }
+    }
     return mem.gallery;
   },
   async addPic(p) {
-    if (supabase) { const {data} = await supabase.from('gallery_pics').insert(p).select().single(); return data; }
+    if (supabase) {
+      try {
+        const {data} = await supabase.from('gallery_pics').insert(p).select().single();
+        return data;
+      } catch (e) {
+        console.error('[DB] Supabase addPic failed, using fallback', e.message);
+      }
+    }
     var np = Object.assign({}, p, {id: Date.now(), created_at: new Date().toISOString()}); mem.gallery.push(np); persistMem(); return np;
   },
   async deletePic(id) {
-    if (supabase) { await supabase.from('gallery_pics').delete().eq('id',id); return; }
+    if (supabase) {
+      try {
+        await supabase.from('gallery_pics').delete().eq('id',id);
+        return;
+      } catch (e) {
+        console.error('[DB] Supabase deletePic failed, using fallback', e.message);
+      }
+    }
     mem.gallery = mem.gallery.filter(function(p){return String(p.id)!==String(id);});
     persistMem();
   },
   async getEvent(activeOnly) {
     if (supabase) {
-      var q = supabase.from('events').select('*').order('created_at',{ascending:false}).limit(1);
-      if (activeOnly) q = q.eq('activo',true);
-      const {data} = await q;
-      return (data && data[0]) || null;
+      try {
+        var q = supabase.from('events').select('*').order('created_at',{ascending:false}).limit(1);
+        if (activeOnly) q = q.eq('activo',true);
+        const {data} = await q;
+        return (data && data[0]) || null;
+      } catch (e) {
+        console.error('[DB] Supabase getEvent failed, using fallback', e.message);
+      }
     }
     var evs = activeOnly ? mem.events.filter(function(e){return e.activo;}) : mem.events;
     return evs[evs.length-1] || null;
   },
   async getAllEvents() {
-    if (supabase) { const {data} = await supabase.from('events').select('*').order('created_at',{ascending:false}); return data||[]; }
+    if (supabase) {
+      try {
+        const {data} = await supabase.from('events').select('*').order('created_at',{ascending:false});
+        return data||[];
+      } catch (e) {
+        console.error('[DB] Supabase getAllEvents failed, using fallback', e.message);
+      }
+    }
     return mem.events.slice().reverse();
   },
   async upsertEvent(ev) {
     if (supabase) {
-      if (ev.id) { await supabase.from('events').update(ev).eq('id',ev.id); return ev; }
-      const {data} = await supabase.from('events').insert(ev).select().single(); return data;
+      try {
+        if (ev.id) { await supabase.from('events').update(ev).eq('id',ev.id); return ev; }
+        const {data} = await supabase.from('events').insert(ev).select().single(); return data;
+      } catch (e) {
+        console.error('[DB] Supabase upsertEvent failed, using fallback', e.message);
+      }
     }
     if (ev.id) { var e=mem.events.find(function(e){return e.id===ev.id;}); if(e) Object.assign(e,ev); return ev; }
-    var ne = Object.assign({}, ev, {id: Date.now()}); mem.events.push(ne); return ne;
+    var ne = Object.assign({}, ev, {id: Date.now()}); mem.events.push(ne); persistMem(); return ne;
   },
   async getConfig(key) {
-    if (supabase) { const {data} = await supabase.from('site_config').select('value').eq('key',key).single(); return (data && data.value) || null; }
+    if (supabase) {
+      try {
+        const {data} = await supabase.from('site_config').select('value').eq('key',key).single();
+        return (data && data.value) || null;
+      } catch (e) {
+        console.error('[DB] Supabase getConfig failed, using fallback', e.message);
+      }
+    }
     return mem.config[key] || null;
   },
   async setConfig(key, value) {
-    if (supabase) { await supabase.from('site_config').upsert({key, value, updated_at:new Date().toISOString()}); return; }
+    if (supabase) {
+      try {
+        await supabase.from('site_config').upsert({key, value, updated_at:new Date().toISOString()});
+        return;
+      } catch (e) {
+        console.error('[DB] Supabase setConfig failed, using fallback', e.message);
+      }
+    }
     mem.config[key] = value;
+    persistMem();
   },
   async getAllConfig() {
-    if (supabase) { const {data} = await supabase.from('site_config').select('*'); var r={}; (data||[]).forEach(function(c){r[c.key]=c.value;}); return r; }
+    if (supabase) {
+      try {
+        const {data} = await supabase.from('site_config').select('*');
+        var r={};
+        (data||[]).forEach(function(c){r[c.key]=c.value;});
+        return r;
+      } catch (e) {
+        console.error('[DB] Supabase getAllConfig failed, using fallback', e.message);
+      }
+    }
     return mem.config;
   },
   async getBans() {
-    if (supabase) { const {data} = await supabase.from('banned_users').select('*').order('created_at',{ascending:false}); return data||[]; }
+    if (supabase) {
+      try {
+        const {data} = await supabase.from('banned_users').select('*').order('created_at',{ascending:false});
+        return data||[];
+      } catch (e) {
+        console.error('[DB] Supabase getBans failed, using fallback', e.message);
+      }
+    }
     return mem.banned;
   },
   async banUser(userId, username, reason, bannedBy) {
-    if (supabase) { await supabase.from('banned_users').upsert({user_id:userId,username,reason,banned_by:bannedBy,created_at:new Date().toISOString()}); return; }
+    if (supabase) {
+      try {
+        await supabase.from('banned_users').upsert({user_id:userId,username,reason,banned_by:bannedBy,created_at:new Date().toISOString()});
+        return;
+      } catch (e) {
+        console.error('[DB] Supabase banUser failed, using fallback', e.message);
+      }
+    }
     mem.banned.push({user_id:userId,username,reason,banned_by:bannedBy,created_at:new Date().toISOString()});
+    persistMem();
   },
   async unbanUser(userId) {
-    if (supabase) { await supabase.from('banned_users').delete().eq('user_id',userId); return; }
+    if (supabase) {
+      try {
+        await supabase.from('banned_users').delete().eq('user_id',userId);
+        return;
+      } catch (e) {
+        console.error('[DB] Supabase unbanUser failed, using fallback', e.message);
+      }
+    }
     mem.banned = mem.banned.filter(function(b){return b.user_id!==userId;});
+    persistMem();
   },
   async isBanned(userId) {
-    if (supabase) { const {data} = await supabase.from('banned_users').select('user_id').eq('user_id',userId).single(); return !!data; }
+    if (supabase) {
+      try {
+        const {data} = await supabase.from('banned_users').select('user_id').eq('user_id',userId).single();
+        return !!data;
+      } catch (e) {
+        console.error('[DB] Supabase isBanned failed, using fallback', e.message);
+      }
+    }
     return mem.banned.some(function(b){return b.user_id===userId;});
   },
   async log(adminId, adminName, action, target, detail) {
     target = target || '';
     detail = detail || '';
     var entry = { admin_id:adminId, admin_name:adminName, action, target, detail, created_at:new Date().toISOString() };
-    if (supabase) { await supabase.from('admin_log').insert(entry); return; }
+    if (supabase) {
+      try {
+        await supabase.from('admin_log').insert(entry);
+        return;
+      } catch (e) {
+        console.error('[DB] Supabase log failed, using fallback', e.message);
+      }
+    }
     mem.adminLog.unshift(entry);
     if (mem.adminLog.length > 500) mem.adminLog.pop();
+    persistMem();
   },
   async getLog(limit) {
     limit = limit || 100;
-    if (supabase) { const {data} = await supabase.from('admin_log').select('*').order('created_at',{ascending:false}).limit(limit); return data||[]; }
+    if (supabase) {
+      try {
+        const {data} = await supabase.from('admin_log').select('*').order('created_at',{ascending:false}).limit(limit);
+        return data||[];
+      } catch (e) {
+        console.error('[DB] Supabase getLog failed, using fallback', e.message);
+      }
+    }
     return mem.adminLog.slice(0, limit);
   },
   // TICKETS
   async addTicket(t) {
     if (supabase) {
-      const {data} = await supabase.from('tickets').insert(t).select().single();
-      return data;
+      try {
+        const {data} = await supabase.from('tickets').insert(t).select().single();
+        return data;
+      } catch (e) {
+        console.error('[DB] Supabase addTicket failed, using fallback', e.message);
+      }
     }
     var nt = Object.assign({}, t, {id: Date.now(), status:'pending', created_at: new Date().toISOString()});
     mem.tickets.push(nt);
@@ -298,13 +470,24 @@ const db = {
   },
   async getTickets() {
     if (supabase) {
-      const {data} = await supabase.from('tickets').select('*').order('created_at',{ascending:false});
-      return data || [];
+      try {
+        const {data} = await supabase.from('tickets').select('*').order('created_at',{ascending:false});
+        return data || [];
+      } catch (e) {
+        console.error('[DB] Supabase getTickets failed, using fallback', e.message);
+      }
     }
     return mem.tickets.slice().reverse();
   },
   async updateTicketStatus(id, status) {
-    if (supabase) { await supabase.from('tickets').update({status}).eq('id',id); return; }
+    if (supabase) {
+      try {
+        await supabase.from('tickets').update({status}).eq('id',id);
+        return;
+      } catch (e) {
+        console.error('[DB] Supabase updateTicketStatus failed, using fallback', e.message);
+      }
+    }
     var t = mem.tickets.find(function(t){return String(t.id)===String(id);});
     if (t) {
       t.status = status;
@@ -312,22 +495,37 @@ const db = {
     }
   },
   async deleteTicket(id) {
-    if (supabase) { await supabase.from('tickets').delete().eq('id',id); return; }
+    if (supabase) {
+      try {
+        await supabase.from('tickets').delete().eq('id',id);
+        return;
+      } catch (e) {
+        console.error('[DB] Supabase deleteTicket failed, using fallback', e.message);
+      }
+    }
     mem.tickets = mem.tickets.filter(function(t){return String(t.id)!==String(id);});
     persistMem();
   },
   async getTicketMessages(ticketId) {
     if (supabase) {
-      const {data} = await supabase.from('ticket_messages').select('*').eq('ticket_id',ticketId).order('created_at',{ascending:true});
-      return data || [];
+      try {
+        const {data} = await supabase.from('ticket_messages').select('*').eq('ticket_id',ticketId).order('created_at',{ascending:true});
+        return data || [];
+      } catch (e) {
+        console.error('[DB] Supabase getTicketMessages failed, using fallback', e.message);
+      }
     }
     return (mem.ticketMessages || []).filter(function(m){return String(m.ticket_id)===String(ticketId);});
   },
   async addTicketMessage(ticketId, userId, username, content) {
     const msg = {ticket_id:ticketId, user_id:userId, username:username, content:content, created_at:new Date().toISOString()};
     if (supabase) {
-      const {data} = await supabase.from('ticket_messages').insert(msg).select().single();
-      return data;
+      try {
+        const {data} = await supabase.from('ticket_messages').insert(msg).select().single();
+        return data;
+      } catch (e) {
+        console.error('[DB] Supabase addTicketMessage failed, using fallback', e.message);
+      }
     }
     if (!mem.ticketMessages) mem.ticketMessages = [];
     var nm = Object.assign({}, msg, {id:Date.now()});
