@@ -322,6 +322,37 @@ section { padding: 100px 5vw; position: relative; }
   background: var(--bg3); border: 1px solid var(--border); border-top: none;
   border-radius: 0 0 16px 16px; padding: 14px 16px;
 }
+.chat-login-wall,
+.chat-area,
+.dashboard-wrapper,
+.section-header {
+  transition: all .2s ease;
+}
+
+@media (max-width: 900px) {
+  .dashboard-wrapper { padding: 12px; }
+  .dashboard-tabs { overflow-x: auto; display: flex; gap: 8px; }
+  .dashboard-tabs .dash-tab { flex: 0 0 auto; font-size: 0.78rem; padding: 8px 10px; }
+  .chat-login-wall { padding: 24px; min-height: 260px; }
+  .chat-box { height: 320px; }
+  .chat-msg { gap: 8px; }
+  .chat-msg-avatar { width: 30px; height: 30px; }
+  .chat-msg-nick { font-size: 0.78rem; }
+  .chat-msg-text { font-size: 0.8rem; }
+  #mainNav .nav-links { display: none; }
+  #mainNav .nav-right { gap: 8px; }
+  .hero-title { font-size: 2rem; }
+  .hero-sub { font-size: 1rem; }
+  .shop-grid { grid-template-columns: 1fr; }
+  .team-grid { grid-template-columns: 1fr; }
+  .modal { max-width: 90%; padding: 20px; }
+}
+
+@media (max-width: 600px) {
+  .chat-box { height: 240px; }
+  .ticket-form .form-row { flex-direction: column; }
+  .ticket-form .form-group { width: 100%; }
+}
 .chat-avatar-small { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; object-fit: cover; }
 .chat-input {
   flex: 1; background: var(--bg4); border: 1px solid var(--border);

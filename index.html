@@ -265,6 +265,7 @@
         <button class="dash-tab"         onclick="switchTab('rangos',this)">Rangos</button>
         <button class="dash-tab"         onclick="switchTab('evento',this)">Evento</button>
         <button class="dash-tab"         onclick="switchTab('galeria',this)">Galería</button>
+        <button class="dash-tab"         onclick="switchTab('tickets',this)">Tickets</button>
         <button class="dash-tab"         onclick="switchTab('bans',this)">Bans</button>
         <button class="dash-tab"         onclick="switchTab('log',this)">Log</button>
         <button class="dash-tab"         onclick="switchTab('logo',this)">Apariencia</button>
@@ -310,6 +311,18 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- TICKETS -->
+    <div class="dash-panel" id="tab-tickets">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+        <div>
+          <h4 style="font-family:'Syne',sans-serif;color:var(--white);margin-bottom:4px">Tickets de Soporte</h4>
+          <p style="font-size:0.85rem;color:var(--text-dim)">Revisa y actualiza solicitudes de soporte recibidas en el formulario.</p>
+        </div>
+        <button class="btn-outline" style="font-size:0.83rem;padding:8px 16px" onclick="loadAdminTickets()">Actualizar</button>
+      </div>
+      <div id="adminTicketsList" class="admin-tickets-list" style="min-height:240px"></div>
     </div>
 
     <!-- RANKS -->
