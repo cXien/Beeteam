@@ -2,6 +2,7 @@
 //  BEETEAM - server.js v3
 //  Express + Discord OAuth2 + Supabase DB + Admin Panel API
 // ============================================================
+require('dotenv').config();
 const express  = require('express');
 const cookieSession = require('cookie-session');
 const path     = require('path');
