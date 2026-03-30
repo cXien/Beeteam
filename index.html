@@ -21,6 +21,24 @@
   <button class="btn-primary" onclick="document.getElementById('easterEgg').classList.remove('show')">Cerrar</button>
 </div>
 
+<div id="profileModal" class="modal">
+  <div class="modal-content">
+    <h2>Mi Perfil</h2>
+    <div id="profileContent">
+      <div class="profile-avatar">
+        <img id="profileAvatar" src="" alt="Avatar">
+      </div>
+      <div class="profile-info">
+        <p><strong>Usuario:</strong> <span id="profileUsername"></span></p>
+        <p><strong>ID:</strong> <span id="profileId"></span></p>
+        <p><strong>Admin:</strong> <span id="profileAdmin"></span></p>
+        <p><strong>Roles:</strong> <span id="profileRoles"></span></p>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="closeProfile()">Cerrar</button>
+  </div>
+</div>
+
 <div class="hex-bg"></div>
 <canvas id="hexCanvas" class="hero-hex-canvas"></canvas>
 
@@ -47,6 +65,7 @@
       <div id="userNavArea" style="display:none" class="user-nav-area">
         <img id="userNavAvatar" src="" alt="" class="user-nav-avatar">
         <span id="userNavName" class="user-nav-name"></span>
+        <button id="profileBtn" onclick="showProfile()" class="nav-profile-btn" style="display:none">Perfil</button>
         <button onclick="logout()" class="nav-logout-btn">Salir</button>
       </div>
     </div>

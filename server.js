@@ -19,7 +19,7 @@ const CFG = {
   DISCORD_CLIENT_ID:     process.env.DISCORD_CLIENT_ID     || '',
   DISCORD_CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET || '',
   DISCORD_GUILD_ID:      process.env.DISCORD_GUILD_ID      || '',
-  ADMIN_ROLE_IDS:        (process.env.ADMIN_ROLE_IDS || '').split(',').filter(Boolean),
+  ADMIN_ROLE_IDS:        (process.env.ADMIN_ROLE_IDS || '').split(',').map(function(x){return x.trim();}).filter(Boolean),
   SESSION_SECRET:        process.env.SESSION_SECRET        || 'dev-secret-change-me',
   BASE_URL:              (process.env.BASE_URL || 'http://localhost:3000').replace(/\/$/, ''),
   SUPABASE_URL:          process.env.SUPABASE_URL          || '',
@@ -259,7 +259,8 @@ app.use(cookieSession({
   name: 'session',
   secret: CFG.SESSION_SECRET,
   maxAge: 7 * 24 * 60 * 60 * 1000,
-  secure: process.env.NODE_ENV === 'production',
+  // si estás probando local con NODE_ENV=production, establece DISABLE_SECURE_COOKIE=true para efectos de desarrollo
+  secure: process.env.NODE_ENV === 'production' && !process.env.DISABLE_SECURE_COOKIE && CFG.BASE_URL.startsWith('https'),
   httpOnly: true,
   sameSite: 'lax'
 }));
@@ -314,9 +315,12 @@ app.get('/api/auth/discord/callback', async function(req,res) {
     var isAdmin = false, roles = [];
     try {
       var memData = await (await fetch('https://discord.com/api/users/@me/guilds/'+CFG.DISCORD_GUILD_ID+'/member', {headers:{Authorization:'Bearer '+tok.access_token}})).json();
-      roles = memData.roles || [];
-      isAdmin = CFG.ADMIN_ROLE_IDS.some(function(r){return roles.includes(r);});
-    } catch(e2) {}
+      roles = (memData.roles || []).map(function(r){ return String(r).trim(); });
+      console.log('[Auth] guild member roles:', roles, 'expected admin roles:', CFG.ADMIN_ROLE_IDS);
+      isAdmin = roles.some(function(r){ return CFG.ADMIN_ROLE_IDS.includes(String(r)); });
+    } catch(e2) {
+      console.error('[Auth] guild member fetch failed:', e2 && e2.message ? e2.message : e2);
+    }
     req.session.user = {
       id: u.id,
       username: u.username,
@@ -340,6 +344,18 @@ app.get('/api/me', function(req,res) {
   return req.session.user ? res.json(req.session.user) : res.status(401).json({error:'Not authenticated'});
 });
 
+app.get('/api/profile', function(req,res) {
+  if (!req.session.user) return res.status(401).json({error:'Not authenticated'});
+  res.json({
+    id: req.session.user.id,
+    username: req.session.user.username,
+    avatar: req.session.user.avatar,
+    isAdmin: req.session.user.isAdmin,
+    roles: req.session.user.roles,
+    createdAt: new Date().toISOString() // o de db si guardas
+  });
+});
+
 // ============================================================
 // PUBLIC API
 // ============================================================
@@ -358,13 +374,18 @@ app.post('/api/tickets', async function(req,res) {
   var b = req.body;
   if (!b.nick || !b.type || !b.subject || !b.description) return res.status(400).json({error:'Faltan campos'});
   try {
-    var t = await db.addTicket({
+    var ticketData = {
       nick: b.nick.trim().slice(0,50),
       type: b.type.trim().slice(0,100),
       subject: b.subject.trim().slice(0,200),
       description: b.description.trim().slice(0,2000),
       status: 'pending'
-    });
+    };
+    if (req.session.user) {
+      ticketData.user_id = req.session.user.id;
+      ticketData.user_name = req.session.user.username;
+    }
+    var t = await db.addTicket(ticketData);
     res.json(t);
   } catch(e) { res.status(500).json({error:e.message}); }
 });

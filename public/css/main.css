@@ -91,12 +91,14 @@ nav {
 .user-nav-area { display: flex; align-items: center; gap: 8px; }
 .user-nav-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--border); }
 .user-nav-name { font-size: 0.85rem; font-weight: 600; color: var(--white); }
-.nav-logout-btn {
+.nav-logout-btn, .nav-profile-btn {
   background: transparent; border: 1px solid var(--border);
   color: var(--text-dim); font-size: 0.78rem; padding: 5px 12px;
   border-radius: 7px; cursor: pointer; transition: color .2s, border-color .2s;
 }
-.nav-logout-btn:hover { color: var(--white); border-color: var(--orange); }
+.nav-logout-btn:hover, .nav-profile-btn:hover { color: var(--white); border-color: var(--orange); }
+
+.nav-profile-btn { margin-right: 6px; }
 
 .nav-dash-btn {
   display: flex; align-items: center; gap: 8px;
@@ -308,7 +310,6 @@ section { padding: 100px 5vw; position: relative; }
 .chat-loading { color: var(--text-dim); font-size: 0.85rem; text-align: center; margin: auto; }
 .chat-msg { display: flex; gap: 12px; align-items: flex-start; }
 .chat-msg-avatar { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; object-fit: cover; background: var(--bg4); }
-.chat-msg-body {}
 .chat-msg-header { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
 .chat-msg-nick { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.85rem; color: var(--white); }
 .chat-msg-role { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 5px; }
@@ -549,3 +550,21 @@ footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 6
   .countdown-grid { gap: 10px; }
   .nav-ip span:not(.ip-copy-toast) { display: none; }
 }
+
+/* ==================== MODAL PERFIL ==================== */
+.modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
+  z-index: 9999; display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .3s;
+}
+.modal.show { opacity: 1; pointer-events: all; }
+.modal-content {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 32px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
+  box-shadow: var(--glow);
+}
+.modal-content h2 { font-family: 'Syne', sans-serif; font-size: 1.5rem; color: var(--white); margin-bottom: 20px; }
+.profile-avatar { text-align: center; margin-bottom: 20px; }
+.profile-avatar img { width: 80px; height: 80px; border-radius: 50%; border: 3px solid var(--border); }
+.profile-info p { margin-bottom: 10px; color: var(--text-dim); }
+.profile-info strong { color: var(--white); }

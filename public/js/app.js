@@ -146,6 +146,8 @@ async function loadUser(){
     currentUser=await api('/api/me');
     applyUserUI();
   } catch(e){
+    currentUser = null;
+    applyUserUI();
     const query = new URLSearchParams(window.location.search);
     if (query.get('auth') === 'error') {
       const reason = query.get('reason') || 'unknown';
@@ -156,32 +158,68 @@ async function loadUser(){
 }
 
 function applyUserUI(){
-  if(!currentUser)return;
   const loginBtn=document.getElementById('discordLoginBtn');
   const userArea=document.getElementById('userNavArea');
-  if(loginBtn)loginBtn.style.display='none';
-  if(userArea){
-    userArea.style.display='flex';
-    document.getElementById('userNavAvatar').src=currentUser.avatar||'';
-    document.getElementById('userNavName').textContent=currentUser.username||'';
+  const profileBtn=document.getElementById('profileBtn');
+  const dashBtn=document.getElementById('dashBtn');
+
+  if(loginBtn) loginBtn.style.display = currentUser ? 'none' : 'flex';
+  if(userArea) userArea.style.display = currentUser ? 'flex' : 'none';
+  if(profileBtn) profileBtn.style.display = currentUser ? 'inline-flex' : 'none';
+  if(dashBtn) dashBtn.style.display = (currentUser && currentUser.isAdmin) ? 'flex' : 'none';
+
+  if(currentUser){
+    document.getElementById('userNavAvatar').src = currentUser.avatar || '';
+    document.getElementById('userNavName').textContent = currentUser.username || '';
+    if(currentUser.isAdmin){
+      console.log('[Auth] admin user detected', currentUser.id, currentUser.roles);
+    }
+  } else {
+    // Cerrar panel admin si el usuario se desloguea
+    const dashboardSection = document.getElementById('dashboard-section');
+    if(dashboardSection) dashboardSection.style.display='none';
+    document.body.classList.remove('dash-open');
   }
-  if(currentUser.isAdmin){
-    const dashBtn=document.getElementById('dashBtn');
-    if(dashBtn)dashBtn.style.display='flex';
-  }
+
   const chatWall=document.getElementById('chatLoginWall');
   const chatArea=document.getElementById('chatArea');
-  if(chatWall)chatWall.style.display='none';
+  if(chatWall) chatWall.style.display = currentUser ? 'none' : 'flex';
   if(chatArea){
-    chatArea.style.display='block';
+    chatArea.style.display = currentUser ? 'block' : 'none';
     const av=document.getElementById('chatUserAvatar');
-    if(av)av.src=currentUser.avatar||'';
+    if(av) av.src = currentUser ? currentUser.avatar || '' : '';
   }
-  startChatPoll();
+
+  if(currentUser){
+    startChatPoll();
+  }
 }
 
 function logout(){
-  fetch('/api/auth/logout',{method:'POST',credentials:'include'}).finally(()=>location.reload());
+  fetch('/api/auth/logout',{method:'POST',credentials:'include'})
+    .then(()=>{ currentUser=null; applyUserUI(); })
+    .catch(()=>{})
+    .finally(()=> location.reload());
+}
+
+async function showProfile(){
+  const modal = document.getElementById('profileModal');
+  if(!currentUser) return toast('Debes iniciar sesión', 'error');
+  try {
+    const profile = await api('/api/profile');
+    document.getElementById('profileAvatar').src = profile.avatar || '';
+    document.getElementById('profileUsername').textContent = profile.username || '';
+    document.getElementById('profileId').textContent = profile.id || '';
+    document.getElementById('profileAdmin').textContent = profile.isAdmin ? 'Sí' : 'No';
+    document.getElementById('profileRoles').textContent = (profile.roles || []).join(', ') || 'Ninguno';
+    modal.classList.add('show');
+  } catch(e) {
+    toast('Error cargando perfil', 'error');
+  }
+}
+
+function closeProfile(){
+  document.getElementById('profileModal').classList.remove('show');
 }
 
 // ============================================================
@@ -214,7 +252,8 @@ function renderShop(){
   const grid=document.getElementById('shopGrid');
   if(!grid)return;
   if(!ranks.length){grid.innerHTML='<p style="color:var(--text-dim)">No hay rangos disponibles.</p>';return;}
-  grid.innerHTML=ranks.map(r=>`
+  const uniqueRanks = ranks.filter((r,i,a)=>a.findIndex(x=>(x.id===r.id || x.name===r.name))===i);
+  grid.innerHTML=uniqueRanks.map(r=>`
     <div class="rank-card reveal ${r.featured?'featured':''}">
       <div class="rank-name"><span>${esc(r.name_highlight)}</span> ${esc(r.name.replace(r.name_highlight,'').trim())}</div>
       <div class="rank-price">${esc(r.price)} <small>USD</small></div>
