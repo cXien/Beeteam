@@ -84,6 +84,28 @@ create table if not exists admin_log (
   created_at timestamptz default now()
 );
 
+-- TICKETS
+create table if not exists tickets (
+  id          bigserial primary key,
+  user_id     text not null,
+  username    text not null,
+  type        text not null,
+  subject     text not null,
+  description text not null,
+  status      text default 'pending',
+  created_at  timestamptz default now()
+);
+
+-- TICKET MESSAGES
+create table if not exists ticket_messages (
+  id         bigserial primary key,
+  ticket_id  bigint references tickets(id),
+  user_id    text not null,
+  username   text not null,
+  content    text not null,
+  created_at timestamptz default now()
+);
+
 -- Datos iniciales para ranks
 insert into ranks (name, name_highlight, price, featured, perks, sort_order) values
   ('Bee Worker',  'Bee',   '$2.99',  false, ARRAY['Prefix [Worker] en el chat','Kit de inicio exclusivo','Acceso a /sethome x2','Color de nombre personalizado'], 1),
@@ -101,12 +123,67 @@ alter table events         enable row level security;
 alter table site_config    enable row level security;
 alter table banned_users   enable row level security;
 alter table admin_log      enable row level security;
+alter table tickets        enable row level security;
+alter table ticket_messages enable row level security;
 
 -- Políticas: el backend usa service_role key (ignora RLS)
 -- Los clientes anon solo pueden leer chat no borrado, ranks activos, equipo, galería, eventos activos
-create policy "chat_read" on chat_messages for select using (deleted = false);
-create policy "ranks_read" on ranks for select using (active = true);
-create policy "team_read" on team_members for select using (true);
-create policy "gallery_read" on gallery_pics for select using (true);
-create policy "events_read" on events for select using (activo = true);
-create policy "config_read" on site_config for select using (true);
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "chat_read" ON chat_messages;
+  CREATE POLICY "chat_read" ON chat_messages FOR SELECT USING (deleted = FALSE);
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "ranks_read" ON ranks;
+  CREATE POLICY "ranks_read" ON ranks FOR SELECT USING (active = TRUE);
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "team_read" ON team_members;
+  CREATE POLICY "team_read" ON team_members FOR SELECT USING (TRUE);
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "gallery_read" ON gallery_pics;
+  CREATE POLICY "gallery_read" ON gallery_pics FOR SELECT USING (TRUE);
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "events_read" ON events;
+  CREATE POLICY "events_read" ON events FOR SELECT USING (activo = TRUE);
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "config_read" ON site_config;
+  CREATE POLICY "config_read" ON site_config FOR SELECT USING (TRUE);
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "tickets_insert" ON tickets;
+  CREATE POLICY "tickets_insert" ON tickets FOR INSERT WITH CHECK (TRUE);
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "tickets_read" ON tickets;
+  CREATE POLICY "tickets_read" ON tickets FOR SELECT USING (TRUE);
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "ticket_messages_insert" ON ticket_messages;
+  CREATE POLICY "ticket_messages_insert" ON ticket_messages FOR INSERT WITH CHECK (TRUE);
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "ticket_messages_read" ON ticket_messages;
+  CREATE POLICY "ticket_messages_read" ON ticket_messages FOR SELECT USING (TRUE);
+END $$;

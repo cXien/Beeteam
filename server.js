@@ -24,6 +24,7 @@ const CFG = {
   BASE_URL:              (process.env.BASE_URL || 'http://localhost:3000').replace(/\/$/, ''),
   SUPABASE_URL:          process.env.SUPABASE_URL          || '',
   SUPABASE_SERVICE_KEY:  process.env.SUPABASE_SERVICE_KEY  || '',
+  IS_SERVERLESS:         !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME),
 };
 
 console.log('[CONFIG] BASE_URL=', CFG.BASE_URL);
@@ -49,17 +50,19 @@ if (CFG.SUPABASE_URL && CFG.SUPABASE_SERVICE_KEY) {
 
 const fs = require('fs');
 const os = require('os');
-let persistenceEnabled = true;
+let persistenceEnabled = !CFG.IS_SERVERLESS;
 let SHADOW_PATH = path.join(__dirname, 'db_persistence');
-if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-  // En funciones serverless, /tmp es el único directorio escribible
-  SHADOW_PATH = path.join(os.tmpdir(), 'beeteam_db_persistence');
-}
-try {
-  if (!fs.existsSync(SHADOW_PATH)) fs.mkdirSync(SHADOW_PATH, { recursive: true });
-} catch (e) {
-  console.warn('[DB] persistence disabled, unable to create', SHADOW_PATH, e.message);
-  persistenceEnabled = false;
+if (CFG.IS_SERVERLESS) {
+  // En serverless, no usar persistencia de archivos
+  SHADOW_PATH = '';
+} else {
+  // En local, usar db_persistence
+  try {
+    if (!fs.existsSync(SHADOW_PATH)) fs.mkdirSync(SHADOW_PATH, { recursive: true });
+  } catch (e) {
+    console.warn('[DB] persistence disabled, unable to create', SHADOW_PATH, e.message);
+    persistenceEnabled = false;
+  }
 }
 
 function loadShadow(name, fallback) {
@@ -127,9 +130,10 @@ const db = {
         const {data} = await supabase.from('chat_messages').select('*').eq('deleted',false).order('created_at',{ascending:true}).limit(limit);
         return data || [];
       } catch (e) {
-        console.error('[DB] Supabase getChat failed, using fallback', e.message);
+        console.error('[DB] Supabase getChat failed', e.message);
       }
     }
+    if (CFG.IS_SERVERLESS) return [];
     return mem.chat.filter(function(m){return !m.deleted;}).slice(-limit);
   },
   async addChat(msg) {
@@ -138,9 +142,10 @@ const db = {
         const {data} = await supabase.from('chat_messages').insert(msg).select().single();
         return data;
       } catch (e) {
-        console.error('[DB] Supabase addChat failed, using fallback', e.message);
+        console.error('[DB] Supabase addChat failed', e.message);
       }
     }
+    if (CFG.IS_SERVERLESS) return null;
     const m = Object.assign({}, msg, {id: Date.now().toString(), created_at: new Date().toISOString()});
     mem.chat.push(m);
     if (mem.chat.length > 500) mem.chat.shift();
@@ -360,9 +365,10 @@ const db = {
         await supabase.from('site_config').upsert({key, value, updated_at:new Date().toISOString()});
         return;
       } catch (e) {
-        console.error('[DB] Supabase setConfig failed, using fallback', e.message);
+        console.error('[DB] Supabase setConfig failed', e.message);
       }
     }
+    if (CFG.IS_SERVERLESS) return;
     mem.config[key] = value;
     persistMem();
   },
@@ -374,9 +380,10 @@ const db = {
         (data||[]).forEach(function(c){r[c.key]=c.value;});
         return r;
       } catch (e) {
-        console.error('[DB] Supabase getAllConfig failed, using fallback', e.message);
+        console.error('[DB] Supabase getAllConfig failed', e.message);
       }
     }
+    if (CFG.IS_SERVERLESS) return {};
     return mem.config;
   },
   async getBans() {
