@@ -244,7 +244,13 @@
       <button class="btn-primary" onclick="submitTicket()">Enviar Ticket</button>
     </div>
   </div>
-</section>
+
+  <div id="userTicketsSection" style="margin-top:48px;display:none">
+    <div class="section-label" style="text-align:center">Mis Tickets</div>
+    <div style="max-width:780px;margin:0 auto">
+      <div id="userTicketsList" style="display:flex;flex-direction:column;gap:16px"></div>
+    </div>
+  </div></section>
 
 <div class="divider"></div>
 
@@ -318,11 +324,24 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
         <div>
           <h4 style="font-family:'Syne',sans-serif;color:var(--white);margin-bottom:4px">Tickets de Soporte</h4>
-          <p style="font-size:0.85rem;color:var(--text-dim)">Revisa y actualiza solicitudes de soporte recibidas en el formulario.</p>
+          <p style="font-size:0.85rem;color:var(--text-dim)">Revisa y actualiza solicitudes de soporte. Abre un ticket para ver el chat.</p>
         </div>
         <button class="btn-outline" style="font-size:0.83rem;padding:8px 16px" onclick="loadAdminTickets()">Actualizar</button>
       </div>
-      <div id="adminTicketsList" class="admin-tickets-list" style="min-height:240px"></div>
+      <div id="adminTicketsPanel" style="display:flex;gap:16px">
+        <div id="adminTicketsList" class="admin-tickets-list" style="flex:1;min-width:280px;min-height:240px"></div>
+        <div id="adminTicketChatPanel" style="flex:1.2;min-width:320px;display:flex;flex-direction:column;gap:12px;border:1px solid var(--border);border-radius:12px;padding:16px;background:var(--bg3);display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:12px">
+            <h4 style="font-family:'Syne',sans-serif;color:var(--white);margin:0;font-size:0.95rem">Chat del ticket</h4>
+            <button style="background:none;border:none;color:var(--text-dim);font-size:1.2rem;cursor:pointer" onclick="closeAdminTicketChat()">×</button>
+          </div>
+          <div id="adminTicketChatBox" class="ticket-messages-box" style="flex:1"></div>
+          <div class="ticket-input-row">
+            <input type="text" id="adminTicketChatInput" class="ticket-input" placeholder="Responder al usuario...">
+            <button class="ticket-send-btn" onclick="sendAdminTicketMessage()">Enviar</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- RANKS -->

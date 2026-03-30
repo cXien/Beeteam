@@ -246,6 +246,24 @@ const db = {
     if (supabase) { await supabase.from('tickets').delete().eq('id',id); return; }
     mem.tickets = mem.tickets.filter(function(t){return String(t.id)!==String(id);});
   },
+  async getTicketMessages(ticketId) {
+    if (supabase) {
+      const {data} = await supabase.from('ticket_messages').select('*').eq('ticket_id',ticketId).order('created_at',{ascending:true});
+      return data || [];
+    }
+    return (mem.ticketMessages || []).filter(function(m){return String(m.ticket_id)===String(ticketId);});
+  },
+  async addTicketMessage(ticketId, userId, username, content) {
+    const msg = {ticket_id:ticketId, user_id:userId, username:username, content:content, created_at:new Date().toISOString()};
+    if (supabase) {
+      const {data} = await supabase.from('ticket_messages').insert(msg).select().single();
+      return data;
+    }
+    if (!mem.ticketMessages) mem.ticketMessages = [];
+    var nm = Object.assign({}, msg, {id:Date.now()});
+    mem.ticketMessages.push(nm);
+    return nm;
+  },
 };
 
 // ============================================================
@@ -525,6 +543,32 @@ app.delete('/api/admin/tickets/:id', requireAdmin, async function(req,res) {
   await db.deleteTicket(req.params.id);
   await db.log(req.session.user.id, req.session.user.username, 'delete_ticket', req.params.id);
   res.json({ok:true});
+});
+
+// TICKET MESSAGES
+app.get('/api/tickets/:id/messages', requireAuth, async function(req,res) {
+  const t = await db.getTickets();
+  const ticket = t.find(function(x){return String(x.id)===String(req.params.id);});
+  if (!ticket) return res.status(404).json({error:'Ticket no encontrado'});
+  // Verifica que sea el propietario del ticket o un admin
+  if (ticket.user_id !== req.session.user.id && !req.session.user.isAdmin) {
+    return res.status(403).json({error:'No tienes permiso'});
+  }
+  res.json(await db.getTicketMessages(req.params.id));
+});
+
+app.post('/api/tickets/:id/messages', requireAuth, async function(req,res) {
+  const content = req.body.content;
+  if (!content) return res.status(400).json({error:'Contenido requerido'});
+  const t = await db.getTickets();
+  const ticket = t.find(function(x){return String(x.id)===String(req.params.id);});
+  if (!ticket) return res.status(404).json({error:'Ticket no encontrado'});
+  // Verifica que sea el propietario o admin
+  if (ticket.user_id !== req.session.user.id && !req.session.user.isAdmin) {
+    return res.status(403).json({error:'No tienes permiso'});
+  }
+  const msg = await db.addTicketMessage(req.params.id, req.session.user.id, req.session.user.username, content.trim().slice(0,1000));
+  res.json(msg);
 });
 
 // ============================================================

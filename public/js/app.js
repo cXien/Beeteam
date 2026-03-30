@@ -192,10 +192,13 @@ function applyUserUI(){
 
   if(currentUser){
     startChatPoll();
+    loadUserTickets();
   } else {
     stopChatPoll();
     const box = document.getElementById('chatBox');
     if(box) box.innerHTML = '<div class="chat-loading">Inicia sesión para ver el chat.</div>';
+    const section = document.getElementById('userTicketsSection');
+    if(section) section.style.display = 'none';
   }
 }
 
@@ -970,6 +973,7 @@ async function loadAdminTickets(){
             <span style="font-size:0.72rem;color:var(--text-dim)">${fmtDate(t.created_at)}</span>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="admin-action-btn" style="background:var(--orange);color:#000;font-weight:700" onclick="openAdminTicketChat(${t.id})">Chat</button>
             <select class="inline-select" style="font-size:0.78rem;padding:4px 8px"
               onchange="adminUpdateTicket(${t.id},this.value)">
               <option value="pending"  ${t.status==='pending' ?'selected':''}>Pendiente</option>
@@ -987,12 +991,75 @@ async function loadAdminTickets(){
     list.innerHTML=`<p style="color:var(--orange);padding:16px">Error: ${e.message}</p>`;
   }
 }
+
+async function openAdminTicketChat(ticketId){
+  const panel = document.getElementById('adminTicketChatPanel');
+  const chatBox = document.getElementById('adminTicketChatBox');
+  if(!panel || !chatBox) return;
+  
+  // Guardar el ticket actual
+  window.currentAdminTicketId = ticketId;
+  
+  // Mostrar panel
+  panel.style.display = 'flex';
+  chatBox.innerHTML = '<div style="color:var(--text-dim);margin:auto">Cargando chat...</div>';
+  
+  try {
+    const msgs = await api('/api/tickets/'+ticketId+'/messages');
+    renderAdminTicketChat(msgs);
+  }catch(e){
+    chatBox.innerHTML = '<div style="color:var(--orange);margin:auto">Error: '+e.message+'</div>';
+  }
+}
+
+function renderAdminTicketChat(messages){
+  const chatBox = document.getElementById('adminTicketChatBox');
+  if(!chatBox) return;
+  if(!messages.length){
+    chatBox.innerHTML='<div style="color:var(--text-dim);text-align:center;margin:auto">Sin mensajes aún.</div>';
+    return;
+  }
+  const wasAtBottom = chatBox.scrollTop + chatBox.clientHeight >= chatBox.scrollHeight - 30;
+  chatBox.innerHTML = messages.map(m => `
+    <div class="ticket-msg ${m.user_id === currentUser.id ? 'own' : ''}">
+      <div>
+        <div class="ticket-msg-name">${esc(m.username)}</div>
+        <div class="ticket-msg-time">${fmtTime(m.created_at)}</div>
+        <div class="ticket-msg-text">${esc(m.content)}</div>
+      </div>
+    </div>`).join('');
+  if(wasAtBottom) chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+async function sendAdminTicketMessage(){
+  const ticketId = window.currentAdminTicketId;
+  const input = document.getElementById('adminTicketChatInput');
+  if(!ticketId || !input || !input.value.trim()) return;
+  const content = input.value;
+  input.value='';
+  try {
+    await api('/api/tickets/'+ticketId+'/messages', {method:'POST', body:JSON.stringify({content})});
+    const msgs = await api('/api/tickets/'+ticketId+'/messages');
+    renderAdminTicketChat(msgs);
+  }catch(e){
+    input.value = content;
+    toast(e.message, 'error');
+  }
+}
+
+function closeAdminTicketChat(){
+  const panel = document.getElementById('adminTicketChatPanel');
+  if(panel) panel.style.display = 'none';
+  window.currentAdminTicketId = null;
+}
+
 async function adminUpdateTicket(id,status){
   try{
     await api('/api/admin/tickets/'+id,{method:'PUT',body:JSON.stringify({status})});
     toast('Estado actualizado','ok');
   }catch(e){toast(e.message,'error');}
 }
+
 async function adminDeleteTicket(id){
   if(!confirm('Eliminar este ticket?'))return;
   try{
@@ -1012,10 +1079,101 @@ async function submitTicket(){
   const desc    =document.getElementById('ticketDesc').value.trim();
   if(!nick||!type||!subject||!desc){alert('Completa todos los campos.');return;}
   try{
-    await api('/api/tickets',{method:'POST',body:JSON.stringify({nick,type,subject,description:desc})});
+    const newTicket = await api('/api/tickets',{method:'POST',body:JSON.stringify({nick,type,subject,description:desc})});
     ['ticketNick','ticketType','ticketSubject','ticketDesc'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('ticketModal').classList.add('open');
+    // Mostrar el ticket creado con chat
+    setTimeout(() => {
+      loadUserTickets();
+    }, 800);
   }catch(e){toast(e.message,'error');}
+}
+
+// USER TICKETS SECTION
+async function loadUserTickets(){
+  const section = document.getElementById('userTicketsSection');
+  if(!section) return;
+  if(!currentUser) { section.style.display='none'; return; }
+  try {
+    const allTickets = await api('/api/admin/tickets');
+    const userTickets = allTickets.filter(t => t.user_id === currentUser.id);
+    if(!userTickets.length){section.style.display='none'; return; }
+    section.style.display='block';
+    const list = document.getElementById('userTicketsList');
+    list.innerHTML = userTickets.map(t => `
+      <div class="admin-ticket-row" id="uticket-${t.id}">
+        <div class="admin-ticket-header" style="cursor:pointer" onclick="openUserTicketChat(${t.id})">
+          <div>
+            <span class="admin-ticket-type">${esc(t.type)}</span>
+            <span class="admin-ticket-status" style="color:${['pending','orange','#57F287','var(--text-dim)','#ff7070'][['pending','open','closed','rejected'].indexOf(t.status)||0]}">${['pendiente','abierto','cerrado','rechazado'][['pending','open','closed','rejected'].indexOf(t.status)||0]||t.status}</span>
+            <span style="font-size:0.72rem;color:var(--text-dim)">${fmtDate(t.created_at)}</span>
+          </div>
+          <div style="font-size:0.9rem;color:var(--white);font-weight:700">${esc(t.subject)}</div>
+        </div>
+        <div id="uchat-box-${t.id}" class="ticket-messages-box" style="display:none"></div>
+        <div id="uchat-input-${t.id}" class="ticket-input-row" style="display:none">
+          <input type="text" class="ticket-input uchat-input" placeholder="Escribir mensaje..." data-ticket="${t.id}">
+          <button class="ticket-send-btn" onclick="sendUserTicketMessage(${t.id})">Enviar</button>
+        </div>
+      </div>`).join('');
+  }catch(e){}
+}
+
+async function openUserTicketChat(ticketId){
+  const chatBox = document.getElementById('uchat-box-'+ticketId);
+  const inputRow = document.getElementById('uchat-input-'+ticketId);
+  const allBoxes = document.querySelectorAll('[id^="uchat-box-"]');
+  const allInputs = document.querySelectorAll('[id^="uchat-input-"]');
+  allBoxes.forEach(b => b.style.display='none');
+  allInputs.forEach(i => i.style.display='none');
+  if(chatBox.style.display !== 'none'){
+    chatBox.style.display='none';
+    inputRow.style.display='none';
+    return;
+  }
+  chatBox.style.display='flex';
+  inputRow.style.display='flex';
+  chatBox.innerHTML='<div style="color:var(--text-dim);margin:auto">Cargando mensajes...</div>';
+  try {
+    const msgs = await api('/api/tickets/'+ticketId+'/messages');
+    renderUserTicketChat(ticketId, msgs);
+  }catch(e){
+    chatBox.innerHTML='<div style="color:var(--orange);margin:auto">Error cargando chat</div>';
+  }
+}
+
+function renderUserTicketChat(ticketId, messages){
+  const chatBox = document.getElementById('uchat-box-'+ticketId);
+  if(!chatBox) return;
+  if(!messages.length){
+    chatBox.innerHTML='<div style="color:var(--text-dim);text-align:center;margin:auto">Sin mensajes aún. ¡Sé el primero!</div>';
+    return;
+  }
+  const wasAtBottom = chatBox.scrollTop + chatBox.clientHeight >= chatBox.scrollHeight - 30;
+  chatBox.innerHTML = messages.map(m => `
+    <div class="ticket-msg ${m.user_id === currentUser.id ? 'own' : ''}">
+      <div>
+        <div class="ticket-msg-name">${esc(m.username)}</div>
+        <div class="ticket-msg-time">${fmtTime(m.created_at)}</div>
+        <div class="ticket-msg-text">${esc(m.content)}</div>
+      </div>
+    </div>`).join('');
+  if(wasAtBottom) chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+async function sendUserTicketMessage(ticketId){
+  const input = document.querySelector('[data-ticket="'+ticketId+'"]');
+  if(!input || !input.value.trim()) return;
+  const content = input.value;
+  input.value = '';
+  try {
+    const msg = await api('/api/tickets/'+ticketId+'/messages', {method:'POST', body:JSON.stringify({content})});
+    const msgs = await api('/api/tickets/'+ticketId+'/messages');
+    renderUserTicketChat(ticketId, msgs);
+  }catch(e){
+    input.value = content;
+    toast(e.message, 'error');
+  }
 }
 
 // ============================================================
