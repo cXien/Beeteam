@@ -1179,6 +1179,7 @@ async function adminDeleteTicket(id) {
 // ============================================================
 async function submitTicket() {
   const type    = document.getElementById('ticketType').value.trim();
+  const nick    = document.getElementById('ticketNick').value.trim();
   const subject = document.getElementById('ticketSubject').value.trim();
   const desc    = document.getElementById('ticketDesc').value.trim();
   if (!type || !subject || !desc) { alert('Completa tipo, asunto y descripción.'); return; }
@@ -1188,10 +1189,18 @@ async function submitTicket() {
   if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
 
   try {
-    const result = await api('/api/tickets', { method: 'POST', body: JSON.stringify({ type, subject, description: desc }) });
+    const result = await api('/api/tickets', {
+      method: 'POST',
+      body: JSON.stringify({
+        type,
+        nick,
+        subject,
+        description: desc,
+      }),
+    });
     console.log('[Ticket creado]', result);
     // Limpiar formulario
-    ['ticketType','ticketSubject','ticketDesc'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    ['ticketType','ticketNick','ticketSubject','ticketDesc'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
     toast('Ticket creado correctamente. El staff lo revisará pronto.', 'ok');
     loadUserTickets();
   } catch (e) {
