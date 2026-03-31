@@ -1214,7 +1214,7 @@ async function loadUserTickets() {
     const statusColors = { pending:'var(--orange)', open:'#57F287', closed:'var(--text-dim)', rejected:'#ff7070' };
     const statusLabels = { pending:'pendiente', open:'abierto', closed:'cerrado', rejected:'rechazado' };
     list.innerHTML = userTickets.map(t => `
-      <div class="admin-ticket-row" id="uticket-${t.id}" style="cursor:pointer" onclick="openUserTicketChat(${t.id})">
+      <div class="admin-ticket-row" id="uticket-${t.id}">
         <div class="admin-ticket-header">
           <div>
             <span class="admin-ticket-type">${esc(t.type)}</span>
@@ -1222,6 +1222,10 @@ async function loadUserTickets() {
             <span style="font-size:0.72rem;color:var(--text-dim)">${fmtDate(t.created_at)}</span>
           </div>
           <div style="font-size:0.9rem;color:var(--white);font-weight:700">${esc(t.subject)}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px">
+          <div style="color:var(--text-dim);font-size:0.9rem">${esc(t.description.slice(0,120))}${t.description.length>120?'...':''}</div>
+          <button class="btn-outline" style="padding:6px 10px;font-size:0.75rem" onclick="openUserTicketChat(${t.id})">Ver Chat</button>
         </div>
       </div>`).join('');
   } catch (e) { console.warn('[Tickets] Error cargando tickets del usuario:', e.message); }
