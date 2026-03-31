@@ -580,7 +580,7 @@ async function sendChatMessage() {
 // JOIN NOTIFICATIONS
 // ============================================================
 (function () {
-  const nicks = ['Cieenn','viHoney','Suaal','NightBuilderZ','HoneyTrapXD','StealthyCreeper','MasterBlockZ','SkyWarriorPro','EpicBeeHunter','ShadowCraft','LegendaryBeeZ'];
+  const nicks = ['xXDragonSlayerXx','CraftMaster99','PvPQueenLara','NightBuilderZ','HoneyTrapXD','StealthyCreeper','MasterBlockZ','SkyWarriorPro','EpicBeeHunter','ShadowCraft','LegendaryBeeZ'];
   const rks = ['[Worker]','[Honey VIP]','[Queen Bee]','[Royal Elite]'];
   function showJoinToast() {
     const nick = nicks[Math.floor(Math.random() * nicks.length)];
@@ -637,15 +637,19 @@ function handleVideoUpload(input) {
 // DASHBOARD TOGGLE
 // ============================================================
 function toggleDashboard() {
-  const sec = document.getElementById('dashboard-section');
-  const isOpen = sec.style.display === 'none' || sec.style.display === '';
-  sec.style.display = isOpen ? 'block' : 'none';
-  document.body.classList.toggle('dash-open', isOpen);
+  const panel   = document.getElementById('dashPanel');
+  const overlay = document.getElementById('dashOverlay');
+  if (!panel) return;
+  const isOpen = panel.style.right === '0px';
   if (isOpen) {
-    // Activar el primer tab correctamente
-    const firstTabBtn = document.querySelector('.dash-tab');
-    switchTab('overview', firstTabBtn);
-    setTimeout(() => sec.scrollIntoView({ behavior: 'smooth' }), 50);
+    panel.style.right = '-100%';
+    overlay.style.display = 'none';
+    document.body.style.overflow = '';
+  } else {
+    panel.style.right = '0px';
+    overlay.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    loadAdminOverview();
   }
 }
 
@@ -1081,7 +1085,8 @@ async function loadAdminTickets() {
       <div class="admin-ticket-row" id="ticket-${t.id}">
         <div class="admin-ticket-header">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <span class="admin-ticket-nick">${esc(t.nick || t.username || '?')}</span>
+            <span class="admin-ticket-nick">${esc(t.minecraft_nick || t.nick || t.username || '?')}</span>
+            ${t.minecraft_nick ? `<span style="font-size:0.72rem;color:var(--text-dim)">(Discord: ${esc(t.username)})</span>` : ''}
             <span class="admin-ticket-type">${esc(t.type)}</span>
             <span class="admin-ticket-status" style="color:${statusColor[t.status] || 'var(--text-dim)'}">
               ${statusLabel[t.status] || t.status}
@@ -1110,11 +1115,32 @@ async function loadAdminTickets() {
 async function openAdminTicketChat(ticketId) {
   const panel   = document.getElementById('adminTicketChatPanel');
   const chatBox = document.getElementById('adminTicketChatBox');
+  const infoBox = document.getElementById('adminTicketInfo');
   if (!panel || !chatBox) return;
   window.currentAdminTicketId = ticketId;
-  // FIX #8: usar flex en vez de block para que se muestre correctamente
   panel.style.display = 'flex';
-  chatBox.innerHTML = '<div style="color:var(--text-dim);margin:auto">Cargando chat...</div>';
+  chatBox.innerHTML = '<div style="color:var(--text-dim);margin:auto;text-align:center;padding:20px">Cargando mensajes...</div>';
+
+  // Load ticket info
+  try {
+    const allTickets = await api('/api/admin/tickets');
+    const t = allTickets.find(x => String(x.id) === String(ticketId));
+    if (t && infoBox) {
+      const statusColor = { pending:'var(--orange)', open:'#57F287', closed:'var(--text-dim)', rejected:'#ff7070' };
+      const statusLabel = { pending:'Pendiente', open:'Abierto', closed:'Cerrado', rejected:'Rechazado' };
+      infoBox.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:0.78rem">
+          <div><span style="color:var(--text-dim)">ID Ticket:</span> <span style="color:var(--white);font-weight:600">#${esc(String(t.id))}</span></div>
+          <div><span style="color:var(--text-dim)">Estado:</span> <span style="color:${statusColor[t.status] || 'var(--text-dim)'};">${statusLabel[t.status] || t.status}</span></div>
+          <div><span style="color:var(--text-dim)">Discord:</span> <span style="color:var(--white)">${esc(t.username)}</span></div>
+          <div><span style="color:var(--text-dim)">User ID:</span> <span style="color:var(--text-dim);font-size:0.72rem">${esc(t.user_id)}</span></div>
+          ${t.minecraft_nick ? `<div><span style="color:var(--text-dim)">Nick MC:</span> <span style="color:var(--orange)">${esc(t.minecraft_nick)}</span></div>` : ''}
+          <div><span style="color:var(--text-dim)">Tipo:</span> <span style="color:var(--white)">${esc(t.type)}</span></div>
+          <div style="grid-column:1/-1"><span style="color:var(--text-dim)">Asunto:</span> <span style="color:var(--white);font-weight:600">${esc(t.subject)}</span></div>
+        </div>`;
+    }
+  } catch(e) { if(infoBox) infoBox.innerHTML = ''; }
+
   try {
     const msgs = await api('/api/tickets/' + ticketId + '/messages');
     renderAdminTicketChat(msgs);
@@ -1179,6 +1205,7 @@ async function adminDeleteTicket(id) {
 // ============================================================
 async function submitTicket() {
   const type    = document.getElementById('ticketType').value.trim();
+  const nick    = document.getElementById('ticketNick').value.trim();
   const subject = document.getElementById('ticketSubject').value.trim();
   const desc    = document.getElementById('ticketDesc').value.trim();
   if (!type || !subject || !desc) { alert('Completa tipo, asunto y descripción.'); return; }
@@ -1188,10 +1215,18 @@ async function submitTicket() {
   if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
 
   try {
-    const result = await api('/api/tickets', { method: 'POST', body: JSON.stringify({ type, subject, description: desc }) });
+    const result = await api('/api/tickets', {
+      method: 'POST',
+      body: JSON.stringify({
+        type,
+        nick,
+        subject,
+        description: desc,
+      }),
+    });
     console.log('[Ticket creado]', result);
     // Limpiar formulario
-    ['ticketType','ticketSubject','ticketDesc'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    ['ticketType','ticketNick','ticketSubject','ticketDesc'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
     toast('Ticket creado correctamente. El staff lo revisará pronto.', 'ok');
     loadUserTickets();
   } catch (e) {
