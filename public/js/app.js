@@ -1193,7 +1193,7 @@ async function submitTicket() {
     // Limpiar formulario
     ['ticketType','ticketSubject','ticketDesc'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
     toast('Ticket creado correctamente. El staff lo revisará pronto.', 'ok');
-    setTimeout(() => loadUserTickets(), 800);
+    loadUserTickets();
   } catch (e) {
     console.error('[submitTicket] Error:', e);
     toast('Error enviando ticket: ' + e.message, 'error');
@@ -1208,9 +1208,12 @@ async function loadUserTickets() {
   if (!section || !currentUser) { if (section) section.style.display = 'none'; return; }
   try {
     const userTickets = await api('/api/tickets');
-    if (!userTickets || !userTickets.length) { section.style.display = 'none'; return; }
     section.style.display = 'block';
     const list = document.getElementById('userTicketsList');
+    if (!userTickets || !userTickets.length) {
+      if (list) list.innerHTML = '<p style="color:var(--text-dim);padding:16px;text-align:center">No tienes tickets aún. Crea uno para iniciar el soporte.</p>';
+      return;
+    }
     const statusColors = { pending:'var(--orange)', open:'#57F287', closed:'var(--text-dim)', rejected:'#ff7070' };
     const statusLabels = { pending:'pendiente', open:'abierto', closed:'cerrado', rejected:'rechazado' };
     list.innerHTML = userTickets.map(t => `
