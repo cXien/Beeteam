@@ -1178,25 +1178,24 @@ async function adminDeleteTicket(id) {
 // y muestra error si falla
 // ============================================================
 async function submitTicket() {
-  const nick    = document.getElementById('ticketNick').value.trim();
-  const type    = document.getElementById('ticketType').value;
+  const type    = document.getElementById('ticketType').value.trim();
   const subject = document.getElementById('ticketSubject').value.trim();
   const desc    = document.getElementById('ticketDesc').value.trim();
-  if (!nick || !type || !subject || !desc) { alert('Completa todos los campos.'); return; }
+  if (!type || !subject || !desc) { alert('Completa tipo, asunto y descripción.'); return; }
   if (!currentUser) { toast('Debes iniciar sesión para crear un ticket.', 'error'); return; }
 
   const btn = document.querySelector('#ticketSection .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
 
   try {
-    await api('/api/tickets', { method: 'POST', body: JSON.stringify({ nick, type, subject, description: desc }) });
-    // Limpiar formulario solo si tuvo éxito
-    ['ticketNick','ticketType','ticketSubject','ticketDesc'].forEach(id => document.getElementById(id).value = '');
-    // FIX #7: abrir modal correctamente
-    const ticketModal = document.getElementById('ticketModal');
-    if (ticketModal) { ticketModal.classList.add('open'); document.body.classList.add('modal-open'); }
+    const result = await api('/api/tickets', { method: 'POST', body: JSON.stringify({ type, subject, description: desc }) });
+    console.log('[Ticket creado]', result);
+    // Limpiar formulario
+    ['ticketType','ticketSubject','ticketDesc'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    toast('Ticket creado correctamente. El staff lo revisará pronto.', 'ok');
     setTimeout(() => loadUserTickets(), 800);
   } catch (e) {
+    console.error('[submitTicket] Error:', e);
     toast('Error enviando ticket: ' + e.message, 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Enviar Ticket'; }

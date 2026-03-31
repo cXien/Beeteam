@@ -980,22 +980,22 @@ app.post('/api/chat', requireAuth, checkBan, async (req, res) => {
 // ============================================================
 app.post('/api/tickets', requireAuth, async (req, res) => {
   const b = req.body;
-  if (!b.nick || !b.type || !b.subject || !b.description) {
-    return res.status(400).json({ error: 'Faltan campos obligatorios' });
+  if (!b.type || !b.subject || !b.description) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios: type, subject, description' });
   }
   try {
     const t = await db.addTicket({
       user_id:     req.session.user.id,
       username:    req.session.user.username,
-      type:        b.type.trim().slice(0, 100),
-      subject:     b.subject.trim().slice(0, 200),
-      description: b.description.trim().slice(0, 2000),
+      type:        (b.type || '').trim().slice(0, 100),
+      subject:     (b.subject || '').trim().slice(0, 200),
+      description: (b.description || '').trim().slice(0, 2000),
     });
-    if (!t) return res.status(503).json({ error: 'No se pudo crear el ticket. Verifica Supabase.' });
+    if (!t) return res.status(503).json({ error: 'No se pudo crear el ticket en Supabase.' });
     res.json(t);
   } catch (e) {
-    console.error('[POST /api/tickets] Error:', e.message, e.details || '');
-    res.status(500).json({ error: e.message });
+    console.error('[POST /api/tickets] Error:', e.message, e.code, e.details);
+    res.status(500).json({ error: 'Error: ' + e.message });
   }
 });
 
