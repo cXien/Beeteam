@@ -1,189 +1,191 @@
+-- ============================================================
+-- BEETEAM — SCHEMA COMPLETO
+-- Ejecuta esto ENTERO en Supabase → SQL Editor
+-- Borra y recrea todo desde cero limpio
+-- ============================================================
 
+-- 1. BORRAR TODO LO EXISTENTE (en orden por dependencias)
+DROP TABLE IF EXISTS ticket_messages CASCADE;
+DROP TABLE IF EXISTS tickets         CASCADE;
+DROP TABLE IF EXISTS admin_log       CASCADE;
+DROP TABLE IF EXISTS banned_users    CASCADE;
+DROP TABLE IF EXISTS site_config     CASCADE;
+DROP TABLE IF EXISTS events          CASCADE;
+DROP TABLE IF EXISTS gallery_pics    CASCADE;
+DROP TABLE IF EXISTS ranks           CASCADE;
+DROP TABLE IF EXISTS team_members    CASCADE;
+DROP TABLE IF EXISTS chat_messages   CASCADE;
+
+-- ============================================================
+-- 2. CREAR TABLAS
+-- ============================================================
 
 -- CHAT MESSAGES
-create table if not exists chat_messages (
-  id          bigserial primary key,
-  user_id     text not null,
-  username    text not null,
+CREATE TABLE chat_messages (
+  id          bigserial PRIMARY KEY,
+  user_id     text NOT NULL,
+  username    text NOT NULL,
   avatar      text,
   role        text,
-  content     text not null,
-  deleted     boolean default false,
+  content     text NOT NULL,
+  deleted     boolean DEFAULT false,
   deleted_by  text,
   deleted_at  timestamptz,
-  created_at  timestamptz default now()
+  created_at  timestamptz DEFAULT now()
 );
 
 -- TEAM MEMBERS
-create table if not exists team_members (
-  id         bigserial primary key,
-  nick       text not null,
-  role       text not null default 'staff',
+CREATE TABLE team_members (
+  id         bigserial PRIMARY KEY,
+  nick       text NOT NULL,
+  role       text NOT NULL DEFAULT 'staff',
   skin_url   text,
-  sort_order integer default 0,
-  created_at timestamptz default now()
+  sort_order integer DEFAULT 0,
+  created_at timestamptz DEFAULT now()
 );
 
 -- RANKS (tienda)
-create table if not exists ranks (
-  id             bigserial primary key,
-  name           text not null,
-  name_highlight text not null,
-  price          text not null,
-  featured       boolean default false,
-  perks          text[] default '{}',
-  sort_order     integer default 0,
-  active         boolean default true,
-  created_at     timestamptz default now()
+CREATE TABLE ranks (
+  id             bigserial PRIMARY KEY,
+  name           text NOT NULL,
+  name_highlight text NOT NULL,
+  price          text NOT NULL,
+  featured       boolean DEFAULT false,
+  perks          text[] DEFAULT '{}',
+  sort_order     integer DEFAULT 0,
+  active         boolean DEFAULT true,
+  created_at     timestamptz DEFAULT now()
 );
 
 -- GALLERY PICS
-create table if not exists gallery_pics (
-  id         bigserial primary key,
-  title      text not null,
-  category   text not null default 'otro',
-  image_url  text not null,
-  sort_order integer default 0,
-  created_at timestamptz default now()
+CREATE TABLE gallery_pics (
+  id         bigserial PRIMARY KEY,
+  title      text NOT NULL,
+  category   text NOT NULL DEFAULT 'otro',
+  image_url  text NOT NULL,
+  sort_order integer DEFAULT 0,
+  created_at timestamptz DEFAULT now()
 );
 
 -- EVENTS (countdown)
-create table if not exists events (
-  id         bigserial primary key,
-  nombre     text not null,
-  descripcion text default '',
-  fecha      timestamptz not null,
-  activo     boolean default true,
-  created_at timestamptz default now()
+CREATE TABLE events (
+  id          bigserial PRIMARY KEY,
+  nombre      text NOT NULL,
+  descripcion text DEFAULT '',
+  fecha       timestamptz NOT NULL,
+  activo      boolean DEFAULT true,
+  created_at  timestamptz DEFAULT now()
 );
 
--- SITE CONFIG (logo, video, etc.)
-create table if not exists site_config (
-  key        text primary key,
+-- SITE CONFIG
+CREATE TABLE site_config (
+  key        text PRIMARY KEY,
   value      text,
-  updated_at timestamptz default now()
+  updated_at timestamptz DEFAULT now()
 );
 
 -- BANNED USERS
-create table if not exists banned_users (
-  user_id    text primary key,
+CREATE TABLE banned_users (
+  user_id    text PRIMARY KEY,
   username   text,
   reason     text,
   banned_by  text,
-  created_at timestamptz default now()
+  created_at timestamptz DEFAULT now()
 );
 
--- ADMIN LOG (auditoría de acciones admin)
-create table if not exists admin_log (
-  id         bigserial primary key,
-  admin_id   text not null,
-  admin_name text not null,
-  action     text not null,
+-- ADMIN LOG
+CREATE TABLE admin_log (
+  id         bigserial PRIMARY KEY,
+  admin_id   text NOT NULL,
+  admin_name text NOT NULL,
+  action     text NOT NULL,
   target     text,
   detail     text,
-  created_at timestamptz default now()
+  created_at timestamptz DEFAULT now()
 );
 
 -- TICKETS
-create table if not exists tickets (
-  id          bigserial primary key,
-  user_id     text not null,
-  username    text not null,
-  type        text not null,
-  subject     text not null,
-  description text not null,
-  status      text default 'pending',
-  created_at  timestamptz default now()
+CREATE TABLE tickets (
+  id             bigserial PRIMARY KEY,
+  user_id        text NOT NULL,
+  username       text NOT NULL DEFAULT 'Desconocido',
+  minecraft_nick text,
+  type           text NOT NULL DEFAULT 'Otro',
+  subject        text NOT NULL DEFAULT 'Sin asunto',
+  description    text NOT NULL DEFAULT '',
+  status         text NOT NULL DEFAULT 'pending',
+  created_at     timestamptz DEFAULT now()
 );
 
 -- TICKET MESSAGES
-create table if not exists ticket_messages (
-  id         bigserial primary key,
-  ticket_id  bigint references tickets(id),
-  user_id    text not null,
-  username   text not null,
-  content    text not null,
-  created_at timestamptz default now()
+CREATE TABLE ticket_messages (
+  id         bigserial PRIMARY KEY,
+  ticket_id  bigint REFERENCES tickets(id) ON DELETE CASCADE,
+  user_id    text NOT NULL,
+  username   text NOT NULL,
+  content    text NOT NULL,
+  created_at timestamptz DEFAULT now()
 );
 
--- Datos iniciales para ranks
-insert into ranks (name, name_highlight, price, featured, perks, sort_order) values
+-- ============================================================
+-- 3. DATOS INICIALES
+-- ============================================================
+
+INSERT INTO ranks (name, name_highlight, price, featured, perks, sort_order) VALUES
   ('Bee Worker',  'Bee',   '$2.99',  false, ARRAY['Prefix [Worker] en el chat','Kit de inicio exclusivo','Acceso a /sethome x2','Color de nombre personalizado'], 1),
   ('Honey VIP',   'Honey', '$6.99',  true,  ARRAY['Todo lo de Worker','Prefix [Honey] brillante','/fly en spawn y zonas safe','/sethome x5 · /nick','Partículas exclusivas','Acceso a eventos VIP'], 2),
   ('Queen Bee',   'Queen', '$12.99', false, ARRAY['Todo lo de Honey VIP','Prefix [Queen] dorado animado','/fly global · /god','Homes ilimitados','Acceso a servidor creativo','Rol especial en Discord','Prioridad en soporte'], 3),
-  ('Royal Elite', 'Royal', '$24.99', false, ARRAY['Todo lo de Queen Bee','Prefix [Royal] con efectos únicos','Comandos admin limitados','Badge exclusivo en Discord','Chat privado con staff','Kit mensual legendario'], 4)
-on conflict do nothing;
+  ('Royal Elite', 'Royal', '$24.99', false, ARRAY['Todo lo de Queen Bee','Prefix [Royal] con efectos únicos','Comandos admin limitados','Badge exclusivo en Discord','Chat privado con staff','Kit mensual legendario'], 4);
 
--- RLS: habilitar seguridad a nivel de fila (Supabase)
-alter table chat_messages enable row level security;
-alter table team_members   enable row level security;
-alter table ranks          enable row level security;
-alter table gallery_pics   enable row level security;
-alter table events         enable row level security;
-alter table site_config    enable row level security;
-alter table banned_users   enable row level security;
-alter table admin_log      enable row level security;
-alter table tickets        enable row level security;
-alter table ticket_messages enable row level security;
+-- ============================================================
+-- 4. ROW LEVEL SECURITY
+-- ============================================================
 
--- Políticas: el backend usa service_role key (ignora RLS)
--- Los clientes anon solo pueden leer chat no borrado, ranks activos, equipo, galería, eventos activos
-DO $$
-BEGIN
-  DROP POLICY IF EXISTS "chat_read" ON chat_messages;
-  CREATE POLICY "chat_read" ON chat_messages FOR SELECT USING (deleted = FALSE);
-END $$;
+ALTER TABLE chat_messages    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE team_members     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ranks            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE gallery_pics     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE events           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE site_config      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE banned_users     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_log        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tickets          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ticket_messages  ENABLE ROW LEVEL SECURITY;
 
-DO $$
-BEGIN
-  DROP POLICY IF EXISTS "ranks_read" ON ranks;
-  CREATE POLICY "ranks_read" ON ranks FOR SELECT USING (active = TRUE);
-END $$;
+-- ============================================================
+-- 5. POLÍTICAS (service_role del backend ignora RLS)
+-- ============================================================
 
-DO $$
-BEGIN
-  DROP POLICY IF EXISTS "team_read" ON team_members;
-  CREATE POLICY "team_read" ON team_members FOR SELECT USING (TRUE);
-END $$;
+-- Chat: leer solo mensajes no borrados
+CREATE POLICY "chat_read" ON chat_messages FOR SELECT USING (deleted = false);
 
-DO $$
-BEGIN
-  DROP POLICY IF EXISTS "gallery_read" ON gallery_pics;
-  CREATE POLICY "gallery_read" ON gallery_pics FOR SELECT USING (TRUE);
-END $$;
+-- Ranks: leer solo activos
+CREATE POLICY "ranks_read" ON ranks FOR SELECT USING (active = true);
 
-DO $$
-BEGIN
-  DROP POLICY IF EXISTS "events_read" ON events;
-  CREATE POLICY "events_read" ON events FOR SELECT USING (activo = TRUE);
-END $$;
+-- Team, gallery, config, events: lectura pública
+CREATE POLICY "team_read"    ON team_members  FOR SELECT USING (true);
+CREATE POLICY "gallery_read" ON gallery_pics  FOR SELECT USING (true);
+CREATE POLICY "config_read"  ON site_config   FOR SELECT USING (true);
+CREATE POLICY "events_read"  ON events        FOR SELECT USING (activo = true);
 
-DO $$
-BEGIN
-  DROP POLICY IF EXISTS "config_read" ON site_config;
-  CREATE POLICY "config_read" ON site_config FOR SELECT USING (TRUE);
-END $$;
+-- Tickets: lectura y escritura (el backend controla el acceso)
+CREATE POLICY "tickets_all"         ON tickets         FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "ticket_messages_all" ON ticket_messages FOR ALL USING (true) WITH CHECK (true);
 
-DO $$
-BEGIN
-  DROP POLICY IF EXISTS "tickets_insert" ON tickets;
-  CREATE POLICY "tickets_insert" ON tickets FOR INSERT WITH CHECK (TRUE);
-END $$;
+-- ============================================================
+-- 6. REFRESCAR SCHEMA CACHE DE POSTGREST
+-- ============================================================
+NOTIFY pgrst, 'reload schema';
 
-DO $$
-BEGIN
-  DROP POLICY IF EXISTS "tickets_read" ON tickets;
-  CREATE POLICY "tickets_read" ON tickets FOR SELECT USING (TRUE);
-END $$;
-
-DO $$
-BEGIN
-  DROP POLICY IF EXISTS "ticket_messages_insert" ON ticket_messages;
-  CREATE POLICY "ticket_messages_insert" ON ticket_messages FOR INSERT WITH CHECK (TRUE);
-END $$;
-
-DO $$
-BEGIN
-  DROP POLICY IF EXISTS "ticket_messages_read" ON ticket_messages;
-  CREATE POLICY "ticket_messages_read" ON ticket_messages FOR SELECT USING (TRUE);
-END $$;
+-- ============================================================
+-- 7. VERIFICACIÓN FINAL
+-- ============================================================
+SELECT
+  t.table_name,
+  COUNT(c.column_name) AS columnas
+FROM information_schema.tables t
+JOIN information_schema.columns c ON c.table_name = t.table_name
+WHERE t.table_schema = 'public'
+  AND t.table_type = 'BASE TABLE'
+GROUP BY t.table_name
+ORDER BY t.table_name;
