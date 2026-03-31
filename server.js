@@ -691,7 +691,6 @@ const db = {
         console.error('[DB] addTicket failed:', e.message);
       }
     }
-    if (CFG.IS_SERVERLESS) return null;
     const nt = { ...t, id: Date.now(), status: 'pending', created_at: new Date().toISOString() };
     mem.tickets.push(nt);
     persistMem();
@@ -711,7 +710,6 @@ const db = {
         console.error('[DB] getTickets Supabase error:', e.message);
       }
     }
-    if (CFG.IS_SERVERLESS) return [];
     return mem.tickets.slice().reverse();
   },
 
@@ -764,7 +762,6 @@ const db = {
         console.error('[DB] getTicketMessages Supabase error:', e.message);
       }
     }
-    if (CFG.IS_SERVERLESS) return [];
     return (mem.ticketMessages || []).filter(m => String(m.ticket_id) === String(ticketId));
   },
 
@@ -789,7 +786,6 @@ const db = {
         console.error('[DB] addTicketMessage Supabase error:', e.message);
       }
     }
-    if (CFG.IS_SERVERLESS) return null;
     if (!mem.ticketMessages) mem.ticketMessages = [];
     const nm = { ...msg, id: Date.now() };
     mem.ticketMessages.push(nm);
