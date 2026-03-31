@@ -57,7 +57,14 @@ if (!CFG.DISCORD_GUILD_ID) {
 let supabase = null;
 if (CFG.SUPABASE_URL && CFG.SUPABASE_SERVICE_KEY) {
   supabase = createClient(CFG.SUPABASE_URL, CFG.SUPABASE_SERVICE_KEY, {
-    auth: { persistSession: false }
+    auth: { persistSession: false },
+    db: { schema: 'public' },
+    global: {
+      headers: {
+        'Accept-Profile': 'public',
+        'Content-Profile': 'public',
+      }
+    }
   });
   console.log('[Supabase] Conectado correctamente ✓');
 } else {
@@ -669,6 +676,7 @@ const db = {
   // ---------- TICKETS ----------
   async addTicket(t) {
     if (supabase) {
+      // Usar fetch directo a la REST API de Supabase para evitar el bug de schema cache
       try {
         const ticketData = {
           user_id:     t.user_id,
@@ -678,19 +686,56 @@ const db = {
           description: t.description,
           status:      'pending',
         };
-        const { data, error } = await supabase
-          .from('tickets')
-          .insert([ticketData])
-          .select();
-        if (error) {
-          console.error('[DB] addTicket Supabase error:', error.message, 'Code:', error.code, 'Details:', error.details);
-          throw error;
+        // Intentar añadir minecraft_nick si está presente (columna opcional)
+        if (t.minecraft_nick) ticketData.minecraft_nick = t.minecraft_nick;
+
+        const url = CFG.SUPABASE_URL + '/rest/v1/tickets';
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'apikey':        CFG.SUPABASE_SERVICE_KEY,
+            'Authorization': 'Bearer ' + CFG.SUPABASE_SERVICE_KEY,
+            'Prefer':        'return=representation',
+          },
+          body: JSON.stringify(ticketData),
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error('[DB] addTicket REST error:', res.status, errText);
+          // Si falla por minecraft_nick (columna no existe), reintentar sin ella
+          if (errText.includes('minecraft_nick')) {
+            delete ticketData.minecraft_nick;
+            const res2 = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type':  'application/json',
+                'apikey':        CFG.SUPABASE_SERVICE_KEY,
+                'Authorization': 'Bearer ' + CFG.SUPABASE_SERVICE_KEY,
+                'Prefer':        'return=representation',
+              },
+              body: JSON.stringify(ticketData),
+            });
+            if (!res2.ok) {
+              console.error('[DB] addTicket REST retry error:', res2.status, await res2.text());
+              return null;
+            }
+            const data2 = await res2.json();
+            return Array.isArray(data2) ? data2[0] : data2;
+          }
+          return null;
         }
-        return data && data[0] ? data[0] : null;
+
+        const data = await res.json();
+        console.log('[DB] addTicket REST OK:', JSON.stringify(data));
+        return Array.isArray(data) ? data[0] : data;
       } catch (e) {
         console.error('[DB] addTicket failed:', e.message);
+        return null;
       }
     }
+    if (CFG.IS_SERVERLESS) return null;
     const nt = { ...t, id: Date.now(), status: 'pending', created_at: new Date().toISOString() };
     mem.tickets.push(nt);
     persistMem();
@@ -700,14 +745,21 @@ const db = {
   async getTickets() {
     if (supabase) {
       try {
-        const { data, error } = await supabase
-          .from('tickets')
-          .select('*')
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
+        const url = CFG.SUPABASE_URL + '/rest/v1/tickets?select=*&order=created_at.desc';
+        const res = await fetch(url, {
+          headers: {
+            'apikey':        CFG.SUPABASE_SERVICE_KEY,
+            'Authorization': 'Bearer ' + CFG.SUPABASE_SERVICE_KEY,
+          },
+        });
+        if (!res.ok) {
+          console.error('[DB] getTickets REST error:', res.status, await res.text());
+          return [];
+        }
+        return await res.json() || [];
       } catch (e) {
-        console.error('[DB] getTickets Supabase error:', e.message);
+        console.error('[DB] getTickets failed:', e.message);
+        return [];
       }
     }
     return mem.tickets.slice().reverse();
@@ -981,11 +1033,12 @@ app.post('/api/tickets', requireAuth, async (req, res) => {
   }
   try {
     const t = await db.addTicket({
-      user_id:     req.session.user.id,
-      username:    req.session.user.username,
-      type:        (b.type || '').trim().slice(0, 100),
-      subject:     (b.subject || '').trim().slice(0, 200),
-      description: (b.description || '').trim().slice(0, 2000),
+      user_id:        req.session.user.id,
+      username:       req.session.user.username,
+      minecraft_nick: (b.nick || '').trim().slice(0, 100) || null,
+      type:           (b.type || '').trim().slice(0, 100),
+      subject:        (b.subject || '').trim().slice(0, 200),
+      description:    (b.description || '').trim().slice(0, 2000),
     });
     if (!t) return res.status(503).json({ error: 'No se pudo crear el ticket en Supabase.' });
     res.json(t);
