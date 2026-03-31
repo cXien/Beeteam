@@ -1215,8 +1215,8 @@ async function loadUserTickets() {
     const statusColors = { pending:'var(--orange)', open:'#57F287', closed:'var(--text-dim)', rejected:'#ff7070' };
     const statusLabels = { pending:'pendiente', open:'abierto', closed:'cerrado', rejected:'rechazado' };
     list.innerHTML = userTickets.map(t => `
-      <div class="admin-ticket-row" id="uticket-${t.id}">
-        <div class="admin-ticket-header" style="cursor:pointer" onclick="openUserTicketChat(${t.id})">
+      <div class="admin-ticket-row" id="uticket-${t.id}" style="cursor:pointer" onclick="openUserTicketChat(${t.id})">
+        <div class="admin-ticket-header">
           <div>
             <span class="admin-ticket-type">${esc(t.type)}</span>
             <span class="admin-ticket-status" style="color:${statusColors[t.status] || 'var(--text-dim)'}">${statusLabels[t.status] || t.status}</span>
@@ -1224,35 +1224,33 @@ async function loadUserTickets() {
           </div>
           <div style="font-size:0.9rem;color:var(--white);font-weight:700">${esc(t.subject)}</div>
         </div>
-        <div id="uchat-box-${t.id}" class="ticket-messages-box" style="display:none"></div>
-        <div id="uchat-input-${t.id}" class="ticket-input-row" style="display:none">
-          <input type="text" class="ticket-input" placeholder="Escribir mensaje..." data-ticket="${t.id}" onkeydown="if(event.key==='Enter')sendUserTicketMessage(${t.id})">
-          <button class="ticket-send-btn" onclick="sendUserTicketMessage(${t.id})">Enviar</button>
-        </div>
       </div>`).join('');
   } catch (e) { console.warn('[Tickets] Error cargando tickets del usuario:', e.message); }
 }
 
 async function openUserTicketChat(ticketId) {
-  const chatBox  = document.getElementById('uchat-box-' + ticketId);
-  const inputRow = document.getElementById('uchat-input-' + ticketId);
-  // Cerrar todos los demás chats abiertos
-  document.querySelectorAll('[id^="uchat-box-"]').forEach(b => b.style.display = 'none');
-  document.querySelectorAll('[id^="uchat-input-"]').forEach(i => i.style.display = 'none');
-  if (!chatBox || chatBox.style.display === 'flex') return; // toggle cerrar
-  chatBox.style.display = 'flex';
-  if (inputRow) inputRow.style.display = 'flex';
+  const panel   = document.getElementById('userTicketChatPanel');
+  const chatBox = document.getElementById('userTicketChatBox');
+  if (!panel || !chatBox) return;
+  window.currentUserTicketId = ticketId;
+  panel.style.display = 'flex';
   chatBox.innerHTML = '<div style="color:var(--text-dim);margin:auto">Cargando mensajes...</div>';
   try {
     const msgs = await api('/api/tickets/' + ticketId + '/messages');
     renderUserTicketChat(ticketId, msgs);
   } catch (e) {
-    chatBox.innerHTML = '<div style="color:var(--orange);margin:auto">Error cargando chat</div>';
+    chatBox.innerHTML = '<div style="color:var(--orange);margin:auto">Error: ' + esc(e.message) + '</div>';
   }
 }
 
+function closeUserTicketChat() {
+  const panel = document.getElementById('userTicketChatPanel');
+  if (panel) panel.style.display = 'none';
+  window.currentUserTicketId = null;
+}
+
 function renderUserTicketChat(ticketId, messages) {
-  const chatBox = document.getElementById('uchat-box-' + ticketId);
+  const chatBox = document.getElementById('userTicketChatBox');
   if (!chatBox) return;
   if (!messages.length) { chatBox.innerHTML = '<div style="color:var(--text-dim);text-align:center;margin:auto">Sin mensajes aún.</div>'; return; }
   const wasAtBottom = chatBox.scrollTop + chatBox.clientHeight >= chatBox.scrollHeight - 30;
@@ -1267,9 +1265,10 @@ function renderUserTicketChat(ticketId, messages) {
   if (wasAtBottom) chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-async function sendUserTicketMessage(ticketId) {
-  const input = document.querySelector('[data-ticket="' + ticketId + '"]');
-  if (!input || !input.value.trim()) return;
+async function sendUserTicketMessageFromModal() {
+  const ticketId = window.currentUserTicketId;
+  const input    = document.getElementById('userTicketChatInput');
+  if (!ticketId || !input || !input.value.trim()) return;
   const content = input.value;
   input.value = '';
   try {
@@ -1277,8 +1276,7 @@ async function sendUserTicketMessage(ticketId) {
     const msgs = await api('/api/tickets/' + ticketId + '/messages');
     renderUserTicketChat(ticketId, msgs);
   } catch (e) {
-    input.value = content;
-    toast(e.message, 'error');
+    toast('Error enviando mensaje: ' + e.message, 'error');
   }
 }
 

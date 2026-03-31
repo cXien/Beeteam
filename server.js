@@ -667,14 +667,12 @@ const db = {
   },
 
   // ---------- TICKETS ----------
-  // FIX #5: El schema de tickets en Supabase usa "username" no "user_name"
   async addTicket(t) {
     if (supabase) {
       try {
-        // Normalizar campos al schema real de Supabase
         const ticketData = {
           user_id:     t.user_id,
-          username:    t.user_name || t.username || 'Desconocido',
+          username:    t.username || 'Desconocido',
           type:        t.type,
           subject:     t.subject,
           description: t.description,
@@ -682,13 +680,15 @@ const db = {
         };
         const { data, error } = await supabase
           .from('tickets')
-          .insert(ticketData)
-          .select()
-          .single();
-        if (error) throw error;
-        return data;
+          .insert([ticketData])
+          .select();
+        if (error) {
+          console.error('[DB] addTicket Supabase error:', error.message, 'Code:', error.code, 'Details:', error.details);
+          throw error;
+        }
+        return data && data[0] ? data[0] : null;
       } catch (e) {
-        console.error('[DB] addTicket Supabase error:', e.message);
+        console.error('[DB] addTicket failed:', e.message);
       }
     }
     if (CFG.IS_SERVERLESS) return null;
@@ -986,8 +986,7 @@ app.post('/api/tickets', requireAuth, async (req, res) => {
   try {
     const t = await db.addTicket({
       user_id:     req.session.user.id,
-      user_name:   req.session.user.username, // normalizado en addTicket()
-      nick:        b.nick.trim().slice(0, 50),
+      username:    req.session.user.username,
       type:        b.type.trim().slice(0, 100),
       subject:     b.subject.trim().slice(0, 200),
       description: b.description.trim().slice(0, 2000),
@@ -995,7 +994,7 @@ app.post('/api/tickets', requireAuth, async (req, res) => {
     if (!t) return res.status(503).json({ error: 'No se pudo crear el ticket. Verifica Supabase.' });
     res.json(t);
   } catch (e) {
-    console.error('[Tickets] Error:', e.message);
+    console.error('[POST /api/tickets] Error:', e.message, e.details || '');
     res.status(500).json({ error: e.message });
   }
 });
