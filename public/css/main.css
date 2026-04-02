@@ -563,9 +563,9 @@ body.modal-open { overflow: hidden; }
 /* ==================== SECCIÓN ANUNCIOS ==================== */
 #anuncios { padding: 60px 0; }
 .anuncios-grid {
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 5vw;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
@@ -625,5 +625,5 @@ body.modal-open { overflow: hidden; }
 /* Admin banner type btns */
 .banner-type-btn.active { background: rgba(168,85,247,0.15); color: var(--accent); border-color: var(--accent); }
 @media (max-width: 600px) {
-  .anuncios-grid { grid-template-columns: 1fr; padding: 0 16px; }
+  .anuncios-grid { grid-template-columns: 1fr; padding: 0 5vw; }
 }
