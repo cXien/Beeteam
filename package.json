@@ -1,7 +1,6 @@
 {
   "name": "beeteam-web",
   "version": "2.0.0",
-  "type": "module",
   "description": "BeeTeam Minecraft Server Website",
   "main": "server.js",
   "scripts": {
