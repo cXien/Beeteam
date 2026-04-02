@@ -1530,21 +1530,28 @@ async function loadAnuncios() {
   try {
     const items = await api('/api/noticias');
     const section = document.getElementById('anuncios');
-    const grid    = document.getElementById('anunciosGrid');
-    if (!section || !grid) return;
+    const track   = document.getElementById('anunciosGrid');
+    const dotsEl  = document.getElementById('anuDots');
+    const prevBtn = document.getElementById('anuPrev');
+    const nextBtn = document.getElementById('anuNext');
+    if (!section || !track) return;
     if (!items.length) { section.style.display = 'none'; return; }
 
-    grid.innerHTML = items.map(b => {
+    // Renderizar slides
+    track.innerHTML = items.map(b => {
       const fecha = b.created_at ? fmtDate(b.created_at) : '';
       if (b.btype === 'texto') {
-        return `<div class="anuncio-card txt-type c-${esc(b.color||'purple')} reveal">
+        const colorMap = { purple:'Anuncio', green:'Novedad', yellow:'Aviso', blue:'Info', red:'Urgente' };
+        const badge = colorMap[b.color||'purple'] || 'Anuncio';
+        return `<div class="anuncio-card txt-type c-${esc(b.color||'purple')}">
+          <div class="anuncio-badge">${badge}</div>
           <div class="anuncio-title">${esc(b.title||'')}</div>
           ${b.desc ? `<div class="anuncio-desc">${esc(b.desc)}</div>` : ''}
           <div class="anuncio-date">${fecha}</div>
         </div>`;
       }
-      return `<div class="anuncio-card img-type reveal">
-        <img class="anuncio-img" src="${esc(b.img_url||'')}" alt="${esc(b.title||'')}" loading="lazy" onerror="this.closest('.anuncio-card').style.display='none'">
+      return `<div class="anuncio-card img-type">
+        <img class="anuncio-img" src="${esc(b.img_url||'')}" alt="${esc(b.title||'')}" loading="lazy" onerror="this.closest('.anuncio-card').style.background='var(--bg2)'">
         <div class="anuncio-body">
           ${b.title ? `<div class="anuncio-title">${esc(b.title)}</div>` : ''}
           <div class="anuncio-date">${fecha}</div>
@@ -1552,18 +1559,55 @@ async function loadAnuncios() {
       </div>`;
     }).join('');
 
+    // Dots
+    if (dotsEl) {
+      dotsEl.innerHTML = items.map((_, i) =>
+        `<button class="anu-dot${i===0?' active':''}" data-i="${i}" aria-label="Slide ${i+1}"></button>`
+      ).join('');
+    }
+
     section.style.display = 'block';
-    // activar reveal en las nuevas cards
+
+    // Activar sección header reveal
     section.querySelectorAll('.reveal').forEach(el => {
       const rect = el.getBoundingClientRect();
-      if (rect.top < window.innerHeight) {
-        el.classList.add('visible');
-      } else if (observer) {
-        observer.observe(el);
-      } else {
-        el.classList.add('visible');
-      }
+      if (rect.top < window.innerHeight) el.classList.add('visible');
+      else if (observer) observer.observe(el);
+      else el.classList.add('visible');
     });
+
+    // Slider logic
+    let current = 0;
+    let autoTimer;
+    const total = items.length;
+
+    function goTo(idx) {
+      current = (idx + total) % total;
+      track.style.transform = `translateX(-${current * 100}%)`;
+      dotsEl && dotsEl.querySelectorAll('.anu-dot').forEach((d, i) => d.classList.toggle('active', i === current));
+      if (prevBtn) prevBtn.disabled = false;
+      if (nextBtn) nextBtn.disabled = false;
+    }
+
+    function startAuto() {
+      clearInterval(autoTimer);
+      if (total > 1) autoTimer = setInterval(() => goTo(current + 1), 5000);
+    }
+
+    if (prevBtn) prevBtn.onclick = () => { goTo(current - 1); startAuto(); };
+    if (nextBtn) nextBtn.onclick = () => { goTo(current + 1); startAuto(); };
+    if (dotsEl)  dotsEl.onclick  = e => {
+      const dot = e.target.closest('.anu-dot');
+      if (dot) { goTo(+dot.dataset.i); startAuto(); }
+    };
+
+    // Ocultar flechas si solo hay 1 slide
+    if (prevBtn) prevBtn.style.display = total > 1 ? '' : 'none';
+    if (nextBtn) nextBtn.style.display = total > 1 ? '' : 'none';
+    if (dotsEl)  dotsEl.style.display  = total > 1 ? '' : 'none';
+
+    goTo(0);
+    startAuto();
   } catch (e) { /* si falla, la sección no aparece */ }
 }
 
