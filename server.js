@@ -1000,6 +1000,43 @@ app.get('/api/testimonios', async (req, res) => {
   catch { res.json([]); }
 });
 
+// ==================== NOTICIAS (ticker) ====================
+app.get('/api/noticias', async (req, res) => {
+  const raw = await db.getConfig('noticias');
+  try { res.json(JSON.parse(raw || '[]')); }
+  catch { res.json([]); }
+});
+
+app.get('/api/admin/noticias', requireAdmin, async (req, res) => {
+  const raw = await db.getConfig('noticias');
+  try { res.json(JSON.parse(raw || '[]')); }
+  catch { res.json([]); }
+});
+
+app.post('/api/admin/noticias', requireAdmin, async (req, res) => {
+  const { text, type } = req.body;
+  if (!text) return res.status(400).json({ error: 'text requerido' });
+  const raw = await db.getConfig('noticias');
+  let list = [];
+  try { list = JSON.parse(raw || '[]'); } catch {}
+  const nueva = { id: Date.now(), text, type: type || 'info', created_at: new Date().toISOString() };
+  list.unshift(nueva); // más reciente primero
+  await db.setConfig('noticias', JSON.stringify(list));
+  await db.log(req.session.user.id, req.session.user.username, 'add_noticia', text.slice(0, 40));
+  res.json({ ok: true, noticia: nueva });
+});
+
+app.delete('/api/admin/noticias/:id', requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const raw = await db.getConfig('noticias');
+  let list = [];
+  try { list = JSON.parse(raw || '[]'); } catch {}
+  list = list.filter(n => n.id !== id);
+  await db.setConfig('noticias', JSON.stringify(list));
+  await db.log(req.session.user.id, req.session.user.username, 'del_noticia', String(id));
+  res.json({ ok: true });
+});
+
 app.get('/api/mc-status', async (req, res) => {
   try {
     const data = await (await fetch('https://api.mcsrvstat.us/3/beeteam.club')).json();

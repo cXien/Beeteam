@@ -733,6 +733,7 @@ function switchTab(tabId, btn) {
   if (tabId === 'tickets')     loadAdminTickets();
   if (tabId === 'config')      loadAdminConfig();
   if (tabId === 'testimonios') loadAdminTestimonios();
+  if (tabId === 'noticias')    loadAdminNoticias();
 }
 
 // ============================================================
@@ -1512,6 +1513,87 @@ async function deleteTestimonio(id) {
 }
 
 // ============================================================
+// TICKER DE NOTICIAS
+// ============================================================
+async function loadAndRenderTicker() {
+  try {
+    const noticias = await api('/api/noticias');
+    if (!noticias.length) return;
+    const ticker = document.getElementById('newsTicker');
+    const track  = document.getElementById('tickerTrack');
+    if (!ticker || !track) return;
+
+    // Duplicar items para scroll infinito continuo
+    const items = [...noticias, ...noticias];
+    track.innerHTML = items.map(n => `
+      <div class="ticker-item ${esc(n.type || 'info')}">
+        <span class="ticker-dot"></span>
+        <span>${esc(n.text)}</span>
+      </div>`).join('');
+
+    ticker.style.display = 'block';
+
+    // Ajustar velocidad según cantidad de texto
+    const totalChars = noticias.reduce((acc, n) => acc + n.text.length, 0);
+    const duration = Math.max(15, Math.min(60, totalChars * 0.4));
+    track.style.animationDuration = duration + 's';
+  } catch (e) {
+    // Si falla, el ticker simplemente no aparece
+  }
+}
+
+// ============================================================
+// ADMIN — NOTICIAS
+// ============================================================
+async function loadAdminNoticias() {
+  const list = document.getElementById('adminNoticiasList');
+  if (!list) return;
+  list.innerHTML = '<div style="color:var(--text-dim);padding:16px">Cargando...</div>';
+  try {
+    const items = await api('/api/admin/noticias');
+    if (!items.length) {
+      list.innerHTML = '<p style="color:var(--text-dim);padding:8px">No hay anuncios activos. Crea el primero arriba.</p>';
+      return;
+    }
+    const typeLabel = { info: 'ℹ️ Info', evento: '🎉 Evento', alerta: '⚠️ Alerta', update: '🔧 Update' };
+    list.innerHTML = items.map(n => `
+      <div class="admin-ticket-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+          <span class="admin-badge">${typeLabel[n.type] || n.type}</span>
+          <span style="font-size:0.88rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n.text)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <span style="font-size:0.72rem;color:var(--text-dim)">${fmtDate(n.created_at)}</span>
+          <button class="admin-action-btn del" onclick="deleteNoticia(${n.id})">✕</button>
+        </div>
+      </div>`).join('');
+  } catch (e) { list.innerHTML = `<p style="color:var(--accent);padding:8px">Error: ${esc(e.message)}</p>`; }
+}
+
+async function addNoticia() {
+  const text = document.getElementById('newNoticeText')?.value.trim();
+  const type = document.getElementById('newNoticeType')?.value;
+  if (!text) { toast('Escribe el texto del anuncio', 'error'); return; }
+  try {
+    await api('/api/admin/noticias', { method: 'POST', body: JSON.stringify({ text, type }) });
+    toast('Anuncio publicado', 'ok');
+    document.getElementById('newNoticeText').value = '';
+    loadAdminNoticias();
+    loadAndRenderTicker(); // actualizar ticker en vivo
+  } catch (e) { toast('Error al publicar anuncio', 'error'); }
+}
+
+async function deleteNoticia(id) {
+  if (!confirm('¿Eliminar este anuncio?')) return;
+  try {
+    await api(`/api/admin/noticias/${id}`, { method: 'DELETE' });
+    toast('Anuncio eliminado', 'ok');
+    loadAdminNoticias();
+    loadAndRenderTicker();
+  } catch (e) { toast('Error al eliminar anuncio', 'error'); }
+}
+
+// ============================================================
 // KONAMI CODE EASTER EGG
 // ============================================================
 (function () {
@@ -1527,12 +1609,13 @@ async function deleteTestimonio(id) {
 // INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadUser();           // primero auth
-  await loadSiteConfig();     // luego config (logo, video)
-  loadAndRenderShop();        // paralelo
+  await loadUser();
+  await loadSiteConfig();
+  loadAndRenderShop();
   loadAndRenderTeam();
   loadAndRenderGallery();
   loadAndInitCountdown();
-  loadAndRenderTestimonios(); // carga dinámica desde API, fallback a hardcoded
+  loadAndRenderTestimonios();
+  loadAndRenderTicker();
   initScrollReveal();
 });
