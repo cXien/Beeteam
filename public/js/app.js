@@ -1513,72 +1513,50 @@ async function deleteTestimonio(id) {
 }
 
 
-// ============================================================
-// BANNER SLIDER
-// ============================================================
-let bannerCurrent = 0;
-let bannerItems = [];
-let bannerAutoTimer = null;
 
+// ============================================================
+// SECCIÓN ANUNCIOS
+// ============================================================
 async function loadAndRenderTicker() {
-  await loadBannerSlider();
+  await loadAnuncios();
 }
 
 async function loadBannerSlider() {
-  try {
-    bannerItems = await api('/api/noticias');
-    if (!bannerItems.length) return;
-    const slider = document.getElementById('bannerSlider');
-    const track  = document.getElementById('bannerTrack');
-    const nav    = document.getElementById('bannerNav');
-    if (!slider || !track) return;
+  await loadAnuncios();
+}
 
-    track.innerHTML = bannerItems.map(b => {
+async function loadAnuncios() {
+  try {
+    const items = await api('/api/noticias');
+    const section = document.getElementById('anuncios');
+    const grid    = document.getElementById('anunciosGrid');
+    if (!section || !grid) return;
+    if (!items.length) { section.style.display = 'none'; return; }
+
+    grid.innerHTML = items.map(b => {
+      const fecha = b.created_at ? fmtDate(b.created_at) : '';
       if (b.btype === 'texto') {
-        return `<div class="banner-slide txt-type c-${esc(b.color||'purple')}">
-          <div class="banner-txt-title">${esc(b.title||'')}</div>
-          ${b.desc ? `<div class="banner-txt-desc">${esc(b.desc)}</div>` : ''}
+        return `<div class="anuncio-card txt-type c-${esc(b.color||'purple')} reveal">
+          <div class="anuncio-title">${esc(b.title||'')}</div>
+          ${b.desc ? `<div class="anuncio-desc">${esc(b.desc)}</div>` : ''}
+          <div class="anuncio-date">${fecha}</div>
         </div>`;
       }
-      return `<div class="banner-slide img-type">
-        <img src="${esc(b.img_url||'')}" alt="${esc(b.title||'')}" loading="lazy" onerror="this.parentElement.style.display='none'">
-        ${b.title ? `<div class="banner-caption">${esc(b.title)}</div>` : ''}
+      return `<div class="anuncio-card img-type reveal">
+        <img class="anuncio-img" src="${esc(b.img_url||'')}" alt="${esc(b.title||'')}" loading="lazy" onerror="this.closest('.anuncio-card').style.display='none'">
+        <div class="anuncio-body">
+          ${b.title ? `<div class="anuncio-title">${esc(b.title)}</div>` : ''}
+          <div class="anuncio-date">${fecha}</div>
+        </div>
       </div>`;
     }).join('');
 
-    if (nav) {
-      nav.innerHTML = bannerItems.map((_,i) =>
-        `<button class="banner-dot${i===0?' active':''}" onclick="bannerGoTo(${i})"></button>`
-      ).join('');
-    }
-
-    slider.style.display = 'block';
-    bannerCurrent = 0;
-    bannerUpdatePos();
-    bannerStartAuto();
-  } catch (e) { /* slider no aparece si falla */ }
+    section.style.display = 'block';
+    // activar reveal en las nuevas cards
+    section.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  } catch (e) { /* si falla, la sección no aparece */ }
 }
 
-function bannerUpdatePos() {
-  const track = document.getElementById('bannerTrack');
-  if (track) track.style.transform = `translateX(-${bannerCurrent * 100}%)`;
-  document.querySelectorAll('.banner-dot').forEach((d,i) =>
-    d.classList.toggle('active', i === bannerCurrent));
-}
-
-function bannerGoTo(i) {
-  bannerCurrent = (i + bannerItems.length) % bannerItems.length;
-  bannerUpdatePos();
-  bannerStartAuto();
-}
-
-function bannerMove(dir) { bannerGoTo(bannerCurrent + dir); }
-
-function bannerStartAuto() {
-  clearInterval(bannerAutoTimer);
-  if (bannerItems.length < 2) return;
-  bannerAutoTimer = setInterval(() => bannerGoTo(bannerCurrent + 1), 5000);
-}
 
 // ============================================================
 // ADMIN — BANNERS

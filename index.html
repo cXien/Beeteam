@@ -79,15 +79,6 @@
   </div>
 </nav>
 
-<!-- TICKER DE NOTICIAS -->
-<!-- BANNER SLIDER -->
-<div id="bannerSlider" style="display:none">
-  <div class="banner-track" id="bannerTrack"></div>
-  <div class="banner-nav" id="bannerNav"></div>
-  <button class="banner-arrow banner-prev" onclick="bannerMove(-1)">&#8249;</button>
-  <button class="banner-arrow banner-next" onclick="bannerMove(1)">&#8250;</button>
-</div>
-
 <!-- HERO -->
 <section id="hero">
   <div class="hero-video-bg" id="heroVideoBg">
@@ -107,9 +98,16 @@
   </div>
 </section>
 
-<div class="divider"></div>
+<!-- ANUNCIOS -->
+<section id="anuncios" style="display:none; padding:60px 0">
+  <div class="section-header reveal">
+    <div class="section-label">Comunidad</div>
+    <h2 class="section-title">Anuncios <span>&amp; Noticias</span></h2>
+  </div>
+  <div class="anuncios-grid" id="anunciosGrid"></div>
+</section>
 
-<!-- COUNTDOWN -->
+<div class="divider"></div>
 <div id="countdown-section" style="display:none">
   <div class="section-label" style="text-align:center">Próximo evento</div>
   <div class="countdown-title" id="countdownTitle">Torneo de PvP Mensual</div>
@@ -291,7 +289,7 @@
       <button class="dash-tab"         onclick="switchTab('logo',this)">Apariencia</button>
       <button class="dash-tab"         onclick="switchTab('config',this)">Config</button>
       <button class="dash-tab"         onclick="switchTab('testimonios',this)">Testimonios</button>
-      <button class="dash-tab"         onclick="switchTab('noticias',this)">Banners</button>
+      <button class="dash-tab"         onclick="switchTab('noticias',this)">Anuncios</button>
     </div>
   </div>
   <!-- Panel Content -->
@@ -558,9 +556,9 @@
       <div id="adminTestimoniosList" style="max-width:700px;display:grid;gap:12px"></div>
     </div>
 
-    <!-- TAB BANNERS -->
+    <!-- TAB ANUNCIOS -->
     <div class="dash-panel" id="tab-noticias">
-      <p class="dash-desc">Gestiona los banners que aparecen entre el menú y el hero. Puedes poner banners de imagen o avisos de texto.</p>
+      <p class="dash-desc">Gestiona los anuncios que aparecen en la sección "Anuncios &amp; Noticias" del sitio, debajo del hero. Puedes publicar un banner con imagen o un aviso de texto.</p>
 
       <!-- Tipo selector -->
       <div style="display:flex;gap:10px;margin-bottom:20px">
