@@ -560,144 +560,70 @@ body.modal-open { overflow: hidden; }
   .ticket-form .form-row { flex-direction: column; }
   .ticket-form .form-group { width: 100%; }
 }
-/* ==================== SECCIÓN ANUNCIOS — SLIDER ==================== */
+/* ==================== SECCIÓN ANUNCIOS ==================== */
 #anuncios { padding: 60px 0; }
-
-.anuncios-slider-wrap {
-  position: relative;
-  width: 100%;
-  overflow: hidden;
-  margin-top: 32px;
+.anuncios-grid {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
 }
-
-.anuncios-track {
-  display: flex;
-  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform;
-}
-
-/* Cada slide ocupa 100% del ancho */
+/* Card imagen */
 .anuncio-card {
-  flex: 0 0 100%;
-  width: 100%;
-  min-height: 360px;
-  position: relative;
+  border-radius: 14px;
   overflow: hidden;
-}
-
-/* Card tipo imagen: foto de fondo con overlay */
-.anuncio-card.img-type {
+  border: 1px solid var(--border);
   background: var(--bg2);
+  transition: transform .25s, border-color .25s, box-shadow .25s;
+}
+.anuncio-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(168,85,247,0.4);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
 }
 .anuncio-card.img-type .anuncio-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+  width: 100%; height: 180px; object-fit: cover; display: block;
 }
 .anuncio-card.img-type .anuncio-body {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 40px 5vw;
-  background: linear-gradient(to top, rgba(9,7,15,0.92) 0%, rgba(9,7,15,0.4) 50%, transparent 100%);
+  padding: 14px 16px;
 }
 .anuncio-card.img-type .anuncio-title {
-  font-family: 'Syne', sans-serif;
-  font-weight: 800;
-  font-size: clamp(1.4rem, 3vw, 2.2rem);
-  color: var(--white);
-  line-height: 1.15;
-  margin-bottom: 8px;
+  font-family: 'Syne', sans-serif; font-weight: 700;
+  font-size: 0.95rem; color: var(--white);
 }
 .anuncio-card.img-type .anuncio-date {
-  font-size: 0.8rem;
-  color: rgba(255,255,255,0.55);
+  font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;
 }
-
-/* Card tipo texto: fondo sólido con acento */
+/* Card texto */
 .anuncio-card.txt-type {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 60px 5vw;
-  border-top: 3px solid var(--accent);
+  padding: 22px 20px;
+  border-left-width: 3px;
+  border-left-style: solid;
 }
-.anuncio-card.txt-type.c-purple { border-color: var(--accent);  background: linear-gradient(135deg, rgba(168,85,247,0.10) 0%, var(--bg2) 60%); }
-.anuncio-card.txt-type.c-green  { border-color: #57F287;        background: linear-gradient(135deg, rgba(87,242,135,0.10) 0%, var(--bg2) 60%); }
-.anuncio-card.txt-type.c-yellow { border-color: #FEE75C;        background: linear-gradient(135deg, rgba(254,231,92,0.10) 0%, var(--bg2) 60%); }
-.anuncio-card.txt-type.c-blue   { border-color: #5865F2;        background: linear-gradient(135deg, rgba(88,101,242,0.10) 0%, var(--bg2) 60%); }
-.anuncio-card.txt-type.c-red    { border-color: #ff7070;        background: linear-gradient(135deg, rgba(255,80,80,0.10) 0%, var(--bg2) 60%); }
-.anuncio-card.txt-type .anuncio-badge {
-  font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.12em; margin-bottom: 16px;
-  padding: 4px 12px; border-radius: 99px;
-}
-.anuncio-card.txt-type.c-purple .anuncio-badge { color: var(--accent);  background: rgba(168,85,247,0.15); }
-.anuncio-card.txt-type.c-green  .anuncio-badge { color: #57F287;        background: rgba(87,242,135,0.15); }
-.anuncio-card.txt-type.c-yellow .anuncio-badge { color: #FEE75C;        background: rgba(254,231,92,0.15); }
-.anuncio-card.txt-type.c-blue   .anuncio-badge { color: #5865F2;        background: rgba(88,101,242,0.15); }
-.anuncio-card.txt-type.c-red    .anuncio-badge { color: #ff7070;        background: rgba(255,80,80,0.15); }
+.anuncio-card.txt-type.c-purple { border-color: var(--accent); background: rgba(168,85,247,0.06); }
+.anuncio-card.txt-type.c-green  { border-color: #57F287;       background: rgba(87,242,135,0.06); }
+.anuncio-card.txt-type.c-yellow { border-color: #FEE75C;       background: rgba(254,231,92,0.06); }
+.anuncio-card.txt-type.c-blue   { border-color: #5865F2;       background: rgba(88,101,242,0.06); }
+.anuncio-card.txt-type.c-red    { border-color: #ff7070;       background: rgba(255,80,80,0.06); }
 .anuncio-card.txt-type .anuncio-title {
   font-family: 'Syne', sans-serif; font-weight: 800;
-  font-size: clamp(1.6rem, 4vw, 2.8rem);
-  line-height: 1.1; margin-bottom: 16px; max-width: 700px;
+  font-size: 1rem; margin-bottom: 8px;
 }
-.anuncio-card.txt-type.c-purple .anuncio-title { color: var(--white); }
-.anuncio-card.txt-type.c-green  .anuncio-title { color: var(--white); }
-.anuncio-card.txt-type.c-yellow .anuncio-title { color: var(--white); }
-.anuncio-card.txt-type.c-blue   .anuncio-title { color: var(--white); }
-.anuncio-card.txt-type.c-red    .anuncio-title { color: var(--white); }
+.anuncio-card.txt-type.c-purple .anuncio-title { color: var(--accent); }
+.anuncio-card.txt-type.c-green  .anuncio-title { color: #57F287; }
+.anuncio-card.txt-type.c-yellow .anuncio-title { color: #FEE75C; }
+.anuncio-card.txt-type.c-blue   .anuncio-title { color: #5865F2; }
+.anuncio-card.txt-type.c-red    .anuncio-title { color: #ff7070; }
 .anuncio-card.txt-type .anuncio-desc {
-  font-size: 1rem; color: var(--text-dim);
-  line-height: 1.7; max-width: 560px; margin-bottom: 8px;
+  font-size: 0.88rem; color: var(--text-dim); line-height: 1.6;
 }
 .anuncio-card.txt-type .anuncio-date {
-  font-size: 0.75rem; color: var(--text-dim); margin-top: 12px;
+  font-size: 0.72rem; color: var(--text-dim); margin-top: 12px;
 }
-
-/* Flechas de navegación */
-.anuncios-arrow {
-  position: absolute; top: 50%; transform: translateY(-50%);
-  width: 44px; height: 44px; border-radius: 50%;
-  background: rgba(168,85,247,0.15);
-  border: 1px solid rgba(168,85,247,0.3);
-  color: var(--white); font-size: 1.6rem; line-height: 1;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: background .2s, border-color .2s, opacity .2s;
-  z-index: 10;
-}
-.anuncios-arrow:hover { background: rgba(168,85,247,0.35); border-color: var(--accent); }
-.anuncios-arrow:disabled { opacity: 0.2; cursor: default; }
-.anuncios-prev { left: 16px; }
-.anuncios-next { right: 16px; }
-
-/* Dots */
-.anuncios-dots {
-  display: flex; justify-content: center; gap: 8px;
-  padding: 18px 0 0;
-}
-.anu-dot {
-  width: 8px; height: 8px; border-radius: 99px;
-  background: rgba(168,85,247,0.25);
-  border: none; cursor: pointer; padding: 0;
-  transition: background .25s, width .25s;
-}
-.anu-dot.active {
-  background: var(--accent);
-  width: 24px;
-}
-
 /* Admin banner type btns */
 .banner-type-btn.active { background: rgba(168,85,247,0.15); color: var(--accent); border-color: var(--accent); }
-
 @media (max-width: 600px) {
-  .anuncio-card { min-height: 260px; }
-  .anuncio-card.txt-type { padding: 40px 6vw; }
-  .anuncios-arrow { width: 36px; height: 36px; font-size: 1.3rem; }
+  .anuncios-grid { grid-template-columns: 1fr; padding: 0 16px; }
 }
