@@ -3,6 +3,8 @@
    Estilos para el panel de administración completo
 ============================================================ */
 
+@import url('./components.css');
+
 /* ==================== NOTIFICATION TOASTS ==================== */
 .notif-toast {
   position: fixed; bottom: 80px; right: 24px; z-index: 99999;
@@ -26,14 +28,14 @@
   font-family: 'DM Sans', sans-serif; font-size: 0.85rem; outline: none;
   transition: border-color .2s; width: 100%; max-width: 160px;
 }
-.inline-input:focus { border-color: var(--orange); }
+.inline-input:focus { border-color: var(--accent); }
 .inline-select {
   background: var(--bg3); border: 1px solid var(--border);
   border-radius: 7px; padding: 7px 12px; color: var(--text);
   font-family: 'DM Sans', sans-serif; font-size: 0.85rem; outline: none;
   transition: border-color .2s; cursor: pointer;
 }
-.inline-select:focus { border-color: var(--orange); }
+.inline-select:focus { border-color: var(--accent); }
 
 /* ==================== ADMIN STATS OVERVIEW ==================== */
 .admin-stats-grid {
@@ -54,7 +56,7 @@
 .admin-stat-card.red { border-color: rgba(255,80,80,0.2); }
 .admin-stat-card.red:hover { border-color: rgba(255,80,80,0.5); }
 .admin-stat-icon { font-size: 1.8rem; margin-bottom: 10px; }
-.admin-stat-num  { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; color: var(--orange); margin-bottom: 4px; }
+.admin-stat-num  { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; color: var(--accent); margin-bottom: 4px; }
 .admin-stat-card.red .admin-stat-num { color: #ff7070; }
 .admin-stat-label{ font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
 
@@ -78,7 +80,7 @@
   font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.7rem;
   text-transform: uppercase; letter-spacing: 0.08em;
   padding: 3px 8px; border-radius: 6px;
-  background: rgba(168,85,247,0.15); color: var(--orange);
+  background: rgba(168,85,247,0.15); color: var(--accent);
   white-space: nowrap;
 }
 .log-action.delete_chat, .log-action.ban_user { background: rgba(255,80,80,0.12); color: #ff7070; }
@@ -136,48 +138,11 @@
   display: inline-block; font-size: 0.62rem; font-weight: 800;
   text-transform: uppercase; letter-spacing: 0.1em;
   padding: 2px 7px; border-radius: 5px;
-  background: rgba(168,85,247,0.15); color: var(--orange);
+  background: rgba(168,85,247,0.15); color: var(--accent);
   border: 1px solid rgba(168,85,247,0.25);
 }
 .admin-badge.red { background: rgba(255,80,80,0.12); color: #ff7070; border-color: rgba(255,80,80,0.25); }
 .admin-badge.green { background: rgba(87,242,135,0.1); color: #57F287; border-color: rgba(87,242,135,0.25); }
-
-/* ==================== RANK EDITOR ==================== */
-.rang-editor-item {
-  background: var(--bg4); border: 1px solid var(--border);
-  border-radius: 12px; padding: 0; margin-bottom: 12px;
-  overflow: hidden;
-}
-.rang-editor-item summary {
-  font-family: 'Syne', sans-serif; font-weight: 700; color: var(--white);
-  cursor: pointer; display: flex; align-items: center; gap: 10px;
-  list-style: none; padding: 16px 20px;
-  transition: background .2s;
-}
-.rang-editor-item summary:hover { background: rgba(168,85,247,0.05); }
-.rang-editor-item summary::marker,
-.rang-editor-item summary::-webkit-details-marker { display: none; }
-.rang-editor-item summary::before {
-  content: '▶'; font-size: 0.65rem; color: var(--orange);
-  transition: transform .2s; flex-shrink: 0;
-}
-.rang-editor-item[open] summary::before { transform: rotate(90deg); }
-.rang-editor-body {
-  padding: 0 20px 20px; display: grid; gap: 12px;
-  border-top: 1px solid var(--border);
-  padding-top: 16px;
-}
-.rang-editor-body input,
-.rang-editor-body textarea,
-.rang-editor-body select {
-  width: 100%; background: var(--bg3); border: 1px solid var(--border);
-  border-radius: 8px; padding: 10px 14px; color: var(--text);
-  font-family: 'DM Sans', sans-serif; font-size: 0.85rem; outline: none;
-  transition: border-color .2s;
-}
-.rang-editor-body input:focus,
-.rang-editor-body textarea:focus { border-color: var(--orange); }
-.rang-editor-body textarea { resize: vertical; min-height: 100px; }
 
 /* ==================== EVENTO FORM ==================== */
 .evento-form {
@@ -191,66 +156,6 @@
   grid-template-columns: 1fr 1fr 1.5fr auto;
   gap: 12px; align-items: end;
 }
-
-/* ==================== PICS DASH ==================== */
-.pics-upload-zone {
-  border: 2px dashed var(--border); border-radius: 12px;
-  padding: 48px 40px; text-align: center; cursor: pointer;
-  transition: border-color .25s, background .25s;
-  position: relative; overflow: hidden; margin-bottom: 20px;
-}
-.pics-upload-zone:hover { border-color: var(--orange); background: rgba(168,85,247,0.05); }
-.pics-upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-.pics-upload-zone p { color: var(--text-dim); font-size: 0.88rem; line-height: 1.7; }
-.pics-upload-zone strong { color: var(--orange); }
-.pics-meta-form {
-  background: var(--bg4); border: 1px solid var(--border);
-  border-radius: 12px; padding: 24px; margin-bottom: 20px;
-}
-.pics-meta-form h4 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; color: var(--white); margin-bottom: 16px; }
-.pics-meta-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; }
-.pics-meta-grid input, .pics-meta-grid select {
-  width: 100%; background: var(--bg3); border: 1px solid var(--border);
-  border-radius: 8px; padding: 10px 14px; color: var(--text);
-  font-family: 'DM Sans', sans-serif; font-size: 0.85rem; outline: none;
-  transition: border-color .2s;
-}
-.pics-dash-pending { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; margin-bottom: 4px; }
-.pics-pending-thumb { width: 72px; height: 72px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); position: relative; background: var(--bg3); }
-.pics-pending-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.pics-pending-thumb .remove-pending { position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,.7); border: none; color: #fff; width: 18px; height: 18px; border-radius: 4px; font-size: 0.65rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-
-/* ==================== DASHBOARD HEADER ==================== */
-.dashboard-wrapper { background: var(--bg3); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
-.dashboard-header {
-  padding: 20px 28px; border-bottom: 1px solid var(--border);
-  display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px;
-}
-.dashboard-header h3 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.15rem; color: var(--white); }
-.dashboard-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
-.dash-tab {
-  padding: 7px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600;
-  color: var(--text-dim); cursor: pointer; border: 1px solid transparent;
-  background: none; transition: background .2s, color .2s, border-color .2s;
-  font-family: 'DM Sans', sans-serif; white-space: nowrap;
-}
-.dash-tab.active, .dash-tab:hover { background: rgba(168,85,247,0.12); color: var(--orange); border-color: var(--border); }
-.dash-panel { display: none; padding: 28px; }
-.dash-panel.active { display: block; }
-.dash-desc { color: var(--text-dim); font-size: 0.88rem; margin-bottom: 24px; line-height: 1.6; }
-
-/* ==================== UPLOAD ZONE ==================== */
-.upload-zone {
-  border: 2px dashed var(--border); border-radius: 12px; padding: 36px;
-  text-align: center; cursor: pointer; transition: border-color .2s, background .2s;
-  position: relative; overflow: hidden;
-}
-.upload-zone:hover { border-color: var(--orange); background: rgba(168,85,247,0.05); }
-.upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-.upload-zone p { color: var(--text-dim); font-size: 0.88rem; line-height: 1.6; }
-.upload-zone strong { color: var(--orange); }
-.upload-zone span { font-size: 0.78rem; }
-.upload-icon-big { font-size: 2rem; margin-bottom: 10px; opacity: 0.5; }
 
 /* ==================== RESPONSIVE ==================== */
 @media (max-width: 900px) {
@@ -283,7 +188,7 @@
 .admin-ticket-type {
   font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.08em; padding: 2px 8px; border-radius: 6px;
-  background: rgba(168,85,247,0.15); color: var(--orange);
+  background: rgba(168,85,247,0.15); color: var(--accent);
   border: 1px solid rgba(168,85,247,0.25);
 }
 .admin-ticket-status {

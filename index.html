@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BeeTeam — Servidor de Minecraft</title>
-<meta name="description" content="El servidor de Minecraft más épico. Únete a BeeTeam.">
+<meta name="description" content="Únete a BeeTeam.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/public/css/main.css">
@@ -279,6 +279,8 @@
     <button class="dash-tab"         onclick="switchTab('bans',this)">Bans</button>
     <button class="dash-tab"         onclick="switchTab('log',this)">Log</button>
     <button class="dash-tab"         onclick="switchTab('logo',this)">Apariencia</button>
+    <button class="dash-tab"         onclick="switchTab('config',this)">Config</button>
+    <button class="dash-tab"         onclick="switchTab('testimonios',this)">Testimonios</button>
   </div>
   <!-- Panel Content -->
   <div style="flex:1;overflow-y:auto;padding:24px" id="dashContent">
@@ -459,6 +461,91 @@
     </div>
 
     </div><!-- /dashboard-wrapper -->
+
+    <!-- TAB CONFIG -->
+    <div class="dash-panel" id="tab-config">
+      <p class="dash-desc">Gestiona la configuración del sitio sin tocar el código.</p>
+      <div style="display:grid;gap:20px;max-width:640px">
+
+        <div class="evento-form">
+          <h4 style="font-family:'Syne',sans-serif;color:var(--white);margin-bottom:18px">Servidor de Minecraft</h4>
+          <div style="display:grid;gap:12px">
+            <div>
+              <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">IP del servidor</label>
+              <input class="inline-input" style="max-width:100%" id="cfgServerIp" placeholder="play.beeteam.net" oninput="debounceSaveConfig('server_ip', this.value)">
+            </div>
+            <div>
+              <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Versión de Minecraft</label>
+              <input class="inline-input" style="max-width:100%" id="cfgServerVersion" placeholder="1.20.4" oninput="debounceSaveConfig('server_version', this.value)">
+            </div>
+          </div>
+        </div>
+
+        <div class="evento-form">
+          <h4 style="font-family:'Syne',sans-serif;color:var(--white);margin-bottom:18px">Texto del Hero</h4>
+          <div style="display:grid;gap:12px">
+            <div>
+              <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Título principal</label>
+              <input class="inline-input" style="max-width:100%" id="cfgHeroTitle" placeholder="Únete a BeeTeam" oninput="debounceSaveConfig('hero_title', this.value)">
+            </div>
+            <div>
+              <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Subtítulo / descripción</label>
+              <textarea id="cfgHeroSubtitle" rows="3" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.85rem;outline:none;resize:vertical" placeholder="El servidor Minecraft donde la comunidad manda..." oninput="debounceSaveConfig('hero_subtitle', this.value)"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="evento-form">
+          <h4 style="font-family:'Syne',sans-serif;color:var(--white);margin-bottom:18px">Links</h4>
+          <div style="display:grid;gap:12px">
+            <div>
+              <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Discord (invite URL)</label>
+              <input class="inline-input" style="max-width:100%" id="cfgDiscordUrl" placeholder="https://discord.gg/..." oninput="debounceSaveConfig('discord_url', this.value)">
+            </div>
+            <div>
+              <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Tienda externa (URL)</label>
+              <input class="inline-input" style="max-width:100%" id="cfgStoreUrl" placeholder="https://store.beeteam.net" oninput="debounceSaveConfig('store_url', this.value)">
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB TESTIMONIOS -->
+    <div class="dash-panel" id="tab-testimonios">
+      <p class="dash-desc">Gestiona los testimonios que aparecen en la página principal.</p>
+
+      <!-- Formulario nuevo testimonio -->
+      <div class="evento-form" style="max-width:600px;margin-bottom:28px">
+        <h4 style="font-family:'Syne',sans-serif;color:var(--white);margin-bottom:18px">Agregar testimonio</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Nick del jugador</label>
+            <input class="inline-input" style="max-width:100%" id="newTestNick" placeholder="xXDragonSlayerXx">
+          </div>
+          <div>
+            <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Rango</label>
+            <input class="inline-input" style="max-width:100%" id="newTestRank" placeholder="Queen Bee">
+          </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Texto del testimonio</label>
+          <textarea id="newTestText" rows="3" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.85rem;outline:none;resize:vertical" placeholder="El mejor servidor que he jugado..."></textarea>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div>
+            <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Estrellas (1-5)</label>
+            <input class="inline-input" type="number" min="1" max="5" value="5" id="newTestStars" style="max-width:80px">
+          </div>
+          <button class="btn" style="margin-top:20px" onclick="addTestimonio()">+ Agregar</button>
+        </div>
+      </div>
+
+      <!-- Lista de testimonios existentes -->
+      <div id="adminTestimoniosList" style="max-width:700px;display:grid;gap:12px"></div>
+    </div>
+
   </div><!-- /dashContent -->
 </div><!-- /dashPanel -->
 

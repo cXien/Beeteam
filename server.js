@@ -32,6 +32,7 @@ const CFG = {
   BASE_URL:              (process.env.BASE_URL || 'http://localhost:3000').replace(/\/$/, ''),
   SUPABASE_URL:          process.env.SUPABASE_URL          || '',
   SUPABASE_SERVICE_KEY:  process.env.SUPABASE_SERVICE_KEY  || '',
+  SUPABASE_ANON_KEY:     process.env.SUPABASE_ANON_KEY     || '',
   // FIX #1: IS_SERVERLESS solo afecta a persistencia de archivos locales,
   // NO bloquea Supabase. Supabase funciona perfectamente en Vercel.
   IS_SERVERLESS: !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME),
@@ -982,11 +983,22 @@ app.get('/api/profile', function (req, res) {
 // ============================================================
 // PUBLIC API
 // ============================================================
+
+// Devuelve URL y anon key de Supabase para que el frontend use Realtime
+app.get('/api/public-supabase', (req, res) => {
+  res.json({ url: CFG.SUPABASE_URL, anonKey: CFG.SUPABASE_ANON_KEY });
+});
+
 app.get('/api/config',  async (req, res) => res.json(await db.getAllConfig()));
 app.get('/api/ranks',   async (req, res) => res.json(await db.getRanks(false)));
 app.get('/api/team',    async (req, res) => res.json(await db.getMembers()));
 app.get('/api/gallery', async (req, res) => res.json(await db.getGallery()));
 app.get('/api/event',   async (req, res) => res.json(await db.getEvent(true) || null));
+app.get('/api/testimonios', async (req, res) => {
+  const raw = await db.getConfig('testimonios');
+  try { res.json(JSON.parse(raw || '[]')); }
+  catch { res.json([]); }
+});
 
 app.get('/api/mc-status', async (req, res) => {
   try {
@@ -1173,6 +1185,52 @@ app.put('/api/admin/config', requireAdmin, async (req, res) => {
   if (!key) return res.status(400).json({ error: 'key requerido' });
   await db.setConfig(key, value);
   await db.log(req.session.user.id, req.session.user.username, 'set_config', key);
+  res.json({ ok: true });
+});
+
+// ==================== TESTIMONIOS ====================
+// Los testimonios se guardan en site_config como JSON bajo la key 'testimonios'
+
+app.get('/api/admin/testimonios', requireAdmin, async (req, res) => {
+  const raw = await db.getConfig('testimonios');
+  try { res.json(JSON.parse(raw || '[]')); }
+  catch { res.json([]); }
+});
+
+app.post('/api/admin/testimonios', requireAdmin, async (req, res) => {
+  const { nick, rank, text, stars } = req.body;
+  if (!nick || !text) return res.status(400).json({ error: 'nick y text requeridos' });
+  const raw = await db.getConfig('testimonios');
+  let list = [];
+  try { list = JSON.parse(raw || '[]'); } catch {}
+  const nuevo = { id: Date.now(), nick, rank: rank || '', text, stars: Number(stars) || 5 };
+  list.push(nuevo);
+  await db.setConfig('testimonios', JSON.stringify(list));
+  await db.log(req.session.user.id, req.session.user.username, 'add_testimonio', nick);
+  res.json({ ok: true, testimonio: nuevo });
+});
+
+app.put('/api/admin/testimonios/:id', requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const { nick, rank, text, stars } = req.body;
+  const raw = await db.getConfig('testimonios');
+  let list = [];
+  try { list = JSON.parse(raw || '[]'); } catch {}
+  const idx = list.findIndex(t => t.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'No encontrado' });
+  list[idx] = { id, nick: nick || list[idx].nick, rank: rank ?? list[idx].rank, text: text || list[idx].text, stars: Number(stars) || list[idx].stars };
+  await db.setConfig('testimonios', JSON.stringify(list));
+  res.json({ ok: true });
+});
+
+app.delete('/api/admin/testimonios/:id', requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const raw = await db.getConfig('testimonios');
+  let list = [];
+  try { list = JSON.parse(raw || '[]'); } catch {}
+  list = list.filter(t => t.id !== id);
+  await db.setConfig('testimonios', JSON.stringify(list));
+  await db.log(req.session.user.id, req.session.user.username, 'del_testimonio', String(id));
   res.json({ ok: true });
 });
 

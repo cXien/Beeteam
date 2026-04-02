@@ -153,7 +153,7 @@ ALTER TABLE tickets          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ticket_messages  ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 5. POLÍTICAS (service_role del backend ignora RLS)
+-- 5. POLÍTICAS
 -- ============================================================
 
 -- Chat: leer solo mensajes no borrados
@@ -168,9 +168,17 @@ CREATE POLICY "gallery_read" ON gallery_pics  FOR SELECT USING (true);
 CREATE POLICY "config_read"  ON site_config   FOR SELECT USING (true);
 CREATE POLICY "events_read"  ON events        FOR SELECT USING (activo = true);
 
--- Tickets: lectura y escritura (el backend controla el acceso)
-CREATE POLICY "tickets_all"         ON tickets         FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "ticket_messages_all" ON ticket_messages FOR ALL USING (true) WITH CHECK (true);
+-- Tickets: usuarios solo ven y crean los suyos
+CREATE POLICY "tickets_select" ON tickets FOR SELECT USING (user_id = current_user);
+CREATE POLICY "tickets_insert" ON tickets FOR INSERT WITH CHECK (true);
+CREATE POLICY "tickets_update" ON tickets FOR UPDATE USING (auth.role() = 'service_role');
+CREATE POLICY "tickets_delete" ON tickets FOR DELETE USING (auth.role() = 'service_role');
+
+-- Mensajes: usuarios solo ven mensajes de sus propios tickets
+CREATE POLICY "ticket_messages_select" ON ticket_messages FOR SELECT
+  USING (EXISTS (SELECT 1 FROM tickets WHERE tickets.id = ticket_messages.ticket_id AND tickets.user_id = current_user));
+CREATE POLICY "ticket_messages_insert" ON ticket_messages FOR INSERT WITH CHECK (true);
+CREATE POLICY "ticket_messages_delete" ON ticket_messages FOR DELETE USING (auth.role() = 'service_role');
 
 -- ============================================================
 -- 6. REFRESCAR SCHEMA CACHE DE POSTGREST

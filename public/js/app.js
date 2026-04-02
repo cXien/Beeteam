@@ -25,7 +25,7 @@ let currentFilter = 'todo';
 let lightboxIndex = 0;
 let pendingPics   = [];
 let chatMessages  = [];
-let chatPollTimer = null;
+let chatRealtime  = null;   // suscripción Supabase Realtime (reemplaza polling)
 let siteConfig    = {};
 let testimoniosRendered = false; // FIX #10: evitar duplicados
 
@@ -236,19 +236,71 @@ function applyUserUI() {
   }
 }
 
-// FIX #9: stopChatPoll limpia el timer existente antes de crear uno nuevo
+// Detiene Realtime o polling de respaldo según lo que esté activo
 function stopChatPoll() {
-  if (chatPollTimer) {
-    clearInterval(chatPollTimer);
-    chatPollTimer = null;
+  if (!chatRealtime) return;
+  if (typeof chatRealtime === 'number') {
+    clearInterval(chatRealtime); // era un setInterval de respaldo
+  } else {
+    chatRealtime.unsubscribe(); // era canal Supabase Realtime
   }
+  chatRealtime = null;
 }
 
-// FIX #9: startChatPoll es idempotente — no crea timers duplicados
-function startChatPoll() {
-  if (chatPollTimer) return; // ya está corriendo
-  loadChatMessages();
-  chatPollTimer = setInterval(loadChatMessages, 5000);
+// Inicia Supabase Realtime para el chat — carga mensajes iniciales y escucha cambios
+async function startChatPoll() {
+  if (chatRealtime) return; // ya está suscrito
+
+  // Carga inicial de mensajes
+  await loadChatMessages();
+
+  // Obtener credenciales públicas de Supabase
+  let supabaseUrl, supabaseAnonKey;
+  try {
+    const cfg = await api('/api/public-supabase');
+    supabaseUrl    = cfg.url;
+    supabaseAnonKey = cfg.anonKey;
+  } catch (e) {
+    // Si falla la config, caemos en polling de respaldo cada 5 s
+    console.warn('[Chat] No se pudo obtener config Supabase, usando polling de respaldo');
+    chatRealtime = setInterval(loadChatMessages, 5000);
+    return;
+  }
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    // Anon key no configurada — polling de respaldo
+    chatRealtime = setInterval(loadChatMessages, 5000);
+    return;
+  }
+
+  try {
+    // Importar Supabase JS desde CDN (solo se carga una vez)
+    if (!window._supabaseClient) {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+      window._supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+    }
+    const supaClient = window._supabaseClient;
+
+    chatRealtime = supaClient
+      .channel('chat_messages_realtime')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_messages' },
+        async () => {
+          // Cuando hay cambio en la tabla, recargamos desde la API del servidor
+          await loadChatMessages();
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('[Chat] Error en Realtime, reconectando en 5s...');
+          stopChatPoll();
+          setTimeout(startChatPoll, 5000);
+        }
+      });
+  } catch (e) {
+    console.warn('[Chat] Realtime no disponible, usando polling de respaldo:', e);
+    chatRealtime = setInterval(loadChatMessages, 5000);
+  }
 }
 
 function logout() {
@@ -485,21 +537,32 @@ function initCountdown() {
 // TESTIMONIOS
 // FIX #10: flag para no renderizar múltiples veces
 // ============================================================
-function renderTestimonios() {
+function renderTestimonios(data) {
   if (testimoniosRendered) return;
   const track = document.getElementById('testimoniosTrack');
   if (!track) return;
-  const all = [...TESTIMONIOS_DATA, ...TESTIMONIOS_DATA];
+  const source = (data && data.length) ? data : TESTIMONIOS_DATA;
+  const all = [...source, ...source]; // duplicar para el carrusel infinito
   track.innerHTML = all.map(t => `
     <div class="testimonio-card">
-      <div class="stars">${'★'.repeat(t.stars)}</div>
+      <div class="stars">${'★'.repeat(t.stars || 5)}</div>
       <p class="testimonio-text">${esc(t.text)}</p>
       <div class="testimonio-author">
-        <div class="testimonio-skin"><div class="testimonio-skin-ph">${esc(t.nick.slice(0, 2).toUpperCase())}</div></div>
-        <div><div class="testimonio-nick">${esc(t.nick)}</div><div class="testimonio-rank">${esc(t.rank)}</div></div>
+        <div class="testimonio-skin"><div class="testimonio-skin-ph">${esc((t.nick || '??').slice(0, 2).toUpperCase())}</div></div>
+        <div><div class="testimonio-nick">${esc(t.nick)}</div><div class="testimonio-rank">${esc(t.rank || '')}</div></div>
       </div>
     </div>`).join('');
   testimoniosRendered = true;
+}
+
+async function loadAndRenderTestimonios() {
+  try {
+    const data = await api('/api/testimonios');
+    testimoniosRendered = false;
+    renderTestimonios(data.length ? data : null);
+  } catch {
+    renderTestimonios(); // fallback a datos hardcodeados
+  }
 }
 
 // ============================================================
@@ -649,7 +712,7 @@ function toggleDashboard() {
     panel.style.right = '0px';
     overlay.style.display = 'block';
     document.body.style.overflow = 'hidden';
-    loadAdminOverview();
+    loadAdminStats();
   }
 }
 
@@ -666,8 +729,10 @@ function switchTab(tabId, btn) {
   if (tabId === 'evento')    loadAdminEvento();
   if (tabId === 'galeria')   loadAdminGallery();
   if (tabId === 'bans')      loadAdminBans();
-  if (tabId === 'log')       loadAdminLog();
-  if (tabId === 'tickets')   loadAdminTickets();
+  if (tabId === 'log')         loadAdminLog();
+  if (tabId === 'tickets')     loadAdminTickets();
+  if (tabId === 'config')      loadAdminConfig();
+  if (tabId === 'testimonios') loadAdminTestimonios();
 }
 
 // ============================================================
@@ -1356,6 +1421,97 @@ function closeTicketModal(e) {
 }
 
 // ============================================================
+// ADMIN — CONFIG DEL SITIO
+// ============================================================
+let configSaveTimers = {};
+function debounceSaveConfig(key, value) {
+  clearTimeout(configSaveTimers[key]);
+  configSaveTimers[key] = setTimeout(async () => {
+    try {
+      await api('/api/admin/config', { method: 'PUT', body: JSON.stringify({ key, value }) });
+      toast('Config guardada', 'ok');
+    } catch (e) { toast('Error al guardar config', 'error'); }
+  }, 800);
+}
+
+async function loadAdminConfig() {
+  try {
+    const cfg = await api('/api/config');
+    const fields = {
+      cfgServerIp:      'server_ip',
+      cfgServerVersion: 'server_version',
+      cfgHeroTitle:     'hero_title',
+      cfgHeroSubtitle:  'hero_subtitle',
+      cfgDiscordUrl:    'discord_url',
+      cfgStoreUrl:      'store_url',
+    };
+    for (const [elId, key] of Object.entries(fields)) {
+      const el = document.getElementById(elId);
+      if (el && cfg[key] != null) el.value = cfg[key];
+    }
+  } catch (e) { toast('Error cargando config', 'error'); }
+}
+
+// ============================================================
+// ADMIN — TESTIMONIOS
+// ============================================================
+async function loadAdminTestimonios() {
+  const list = document.getElementById('adminTestimoniosList');
+  if (!list) return;
+  list.innerHTML = '<div style="color:var(--text-dim);padding:16px">Cargando...</div>';
+  try {
+    const items = await api('/api/admin/testimonios');
+    if (!items.length) {
+      list.innerHTML = '<p style="color:var(--text-dim);padding:8px">No hay testimonios. Agrega el primero arriba.</p>';
+      return;
+    }
+    list.innerHTML = items.map(t => `
+      <div class="admin-ticket-row" style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-family:'Syne',sans-serif;font-weight:700;color:var(--white)">${esc(t.nick)}</span>
+            ${t.rank ? `<span class="admin-badge">${esc(t.rank)}</span>` : ''}
+            <span style="color:var(--accent);font-size:0.85rem">${'★'.repeat(t.stars || 5)}</span>
+          </div>
+          <p style="font-size:0.85rem;color:var(--text-dim);line-height:1.6">${esc(t.text)}</p>
+        </div>
+        <button class="admin-action-btn del" onclick="deleteTestimonio(${t.id})">✕ Borrar</button>
+      </div>`).join('');
+  } catch (e) { list.innerHTML = `<p style="color:var(--accent);padding:8px">Error: ${esc(e.message)}</p>`; }
+}
+
+async function addTestimonio() {
+  const nick  = document.getElementById('newTestNick')?.value.trim();
+  const rank  = document.getElementById('newTestRank')?.value.trim();
+  const text  = document.getElementById('newTestText')?.value.trim();
+  const stars = document.getElementById('newTestStars')?.value;
+  if (!nick || !text) { toast('Nick y texto son obligatorios', 'error'); return; }
+  try {
+    await api('/api/admin/testimonios', { method: 'POST', body: JSON.stringify({ nick, rank, text, stars }) });
+    toast('Testimonio agregado', 'ok');
+    document.getElementById('newTestNick').value  = '';
+    document.getElementById('newTestRank').value  = '';
+    document.getElementById('newTestText').value  = '';
+    document.getElementById('newTestStars').value = '5';
+    loadAdminTestimonios();
+    // Refrescar también el carrusel del frontend
+    testimoniosRendered = false;
+    await loadAndRenderTestimonios();
+  } catch (e) { toast('Error al agregar testimonio', 'error'); }
+}
+
+async function deleteTestimonio(id) {
+  if (!confirm('¿Eliminar este testimonio?')) return;
+  try {
+    await api(`/api/admin/testimonios/${id}`, { method: 'DELETE' });
+    toast('Testimonio eliminado', 'ok');
+    loadAdminTestimonios();
+    testimoniosRendered = false;
+    await loadAndRenderTestimonios();
+  } catch (e) { toast('Error al eliminar testimonio', 'error'); }
+}
+
+// ============================================================
 // KONAMI CODE EASTER EGG
 // ============================================================
 (function () {
@@ -1377,6 +1533,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadAndRenderTeam();
   loadAndRenderGallery();
   loadAndInitCountdown();
-  renderTestimonios();
+  loadAndRenderTestimonios(); // carga dinámica desde API, fallback a hardcoded
   initScrollReveal();
 });
