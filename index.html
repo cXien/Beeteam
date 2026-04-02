@@ -80,13 +80,12 @@
 </nav>
 
 <!-- TICKER DE NOTICIAS -->
-<div id="newsTicker" style="display:none">
-  <div class="ticker-inner">
-    <div class="ticker-label">📢 NOTICIAS</div>
-    <div class="ticker-track-wrap">
-      <div class="ticker-track" id="tickerTrack"></div>
-    </div>
-  </div>
+<!-- BANNER SLIDER -->
+<div id="bannerSlider" style="display:none">
+  <div class="banner-track" id="bannerTrack"></div>
+  <div class="banner-nav" id="bannerNav"></div>
+  <button class="banner-arrow banner-prev" onclick="bannerMove(-1)">&#8249;</button>
+  <button class="banner-arrow banner-next" onclick="bannerMove(1)">&#8250;</button>
 </div>
 
 <!-- HERO -->
@@ -280,19 +279,19 @@
   <!-- Tabs -->
   <div style="position:relative;flex-shrink:0;border-bottom:1px solid var(--border)">
     <div id="adminTabNav" style="display:flex;gap:2px;padding:10px 12px;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent">
-      <button class="dash-tab active"  onclick="switchTab('overview',this)">📊 Resumen</button>
-      <button class="dash-tab"         onclick="switchTab('chat',this)">💬 Chat</button>
-      <button class="dash-tab"         onclick="switchTab('tickets',this)">🎫 Tickets</button>
-      <button class="dash-tab"         onclick="switchTab('miembros',this)">👥 Equipo</button>
-      <button class="dash-tab"         onclick="switchTab('rangos',this)">🏅 Rangos</button>
-      <button class="dash-tab"         onclick="switchTab('evento',this)">🎉 Evento</button>
-      <button class="dash-tab"         onclick="switchTab('galeria',this)">🖼️ Galería</button>
-      <button class="dash-tab"         onclick="switchTab('bans',this)">🔨 Bans</button>
-      <button class="dash-tab"         onclick="switchTab('log',this)">📋 Log</button>
-      <button class="dash-tab"         onclick="switchTab('logo',this)">🎨 Apariencia</button>
-      <button class="dash-tab"         onclick="switchTab('config',this)">⚙️ Config</button>
-      <button class="dash-tab"         onclick="switchTab('testimonios',this)">⭐ Testimonios</button>
-      <button class="dash-tab"         onclick="switchTab('noticias',this)">📢 Noticias</button>
+      <button class="dash-tab active"  onclick="switchTab('overview',this)">Resumen</button>
+      <button class="dash-tab"         onclick="switchTab('chat',this)">Chat</button>
+      <button class="dash-tab"         onclick="switchTab('tickets',this)">Tickets</button>
+      <button class="dash-tab"         onclick="switchTab('miembros',this)">Equipo</button>
+      <button class="dash-tab"         onclick="switchTab('rangos',this)">Rangos</button>
+      <button class="dash-tab"         onclick="switchTab('evento',this)">Evento</button>
+      <button class="dash-tab"         onclick="switchTab('galeria',this)">Galería</button>
+      <button class="dash-tab"         onclick="switchTab('bans',this)">Bans</button>
+      <button class="dash-tab"         onclick="switchTab('log',this)">Log</button>
+      <button class="dash-tab"         onclick="switchTab('logo',this)">Apariencia</button>
+      <button class="dash-tab"         onclick="switchTab('config',this)">Config</button>
+      <button class="dash-tab"         onclick="switchTab('testimonios',this)">Testimonios</button>
+      <button class="dash-tab"         onclick="switchTab('noticias',this)">Banners</button>
     </div>
   </div>
   <!-- Panel Content -->
@@ -559,33 +558,46 @@
       <div id="adminTestimoniosList" style="max-width:700px;display:grid;gap:12px"></div>
     </div>
 
-    <!-- TAB NOTICIAS -->
+    <!-- TAB BANNERS -->
     <div class="dash-panel" id="tab-noticias">
-      <p class="dash-desc">Gestiona los anuncios que aparecen en el ticker de la página principal.</p>
+      <p class="dash-desc">Gestiona los banners que aparecen entre el menú y el hero. Puedes poner banners de imagen o avisos de texto.</p>
 
-      <!-- Formulario nuevo anuncio -->
-      <div class="evento-form" style="max-width:600px;margin-bottom:28px">
-        <h4 style="font-family:'Syne',sans-serif;color:var(--white);margin-bottom:18px">Nuevo anuncio</h4>
-        <div style="display:grid;grid-template-columns:1fr auto;gap:12px;margin-bottom:12px">
-          <div>
-            <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Texto del anuncio</label>
-            <input class="inline-input" style="max-width:100%" id="newNoticeText" placeholder="¡Nuevo evento este sábado a las 8PM!">
-          </div>
-          <div>
-            <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Tipo</label>
-            <select class="inline-select" id="newNoticeType">
-              <option value="info">ℹ️ Info</option>
-              <option value="evento">🎉 Evento</option>
-              <option value="alerta">⚠️ Alerta</option>
-              <option value="update">🔧 Update</option>
-            </select>
-          </div>
-        </div>
-        <button class="btn" onclick="addNoticia()">+ Publicar</button>
+      <!-- Tipo selector -->
+      <div style="display:flex;gap:10px;margin-bottom:20px">
+        <button class="btn-outline banner-type-btn active" id="btnTypeBanner" onclick="setBannerType('banner',this)">Banner con imagen</button>
+        <button class="btn-outline banner-type-btn" id="btnTypeText" onclick="setBannerType('texto',this)">Aviso de texto</button>
       </div>
 
-      <!-- Lista de anuncios activos -->
-      <div id="adminNoticiasList" style="max-width:700px;display:grid;gap:10px"></div>
+      <!-- Form banner imagen -->
+      <div class="evento-form" id="formBannerImg" style="max-width:600px;margin-bottom:28px">
+        <h4 style="font-family:'Syne',sans-serif;color:var(--white);margin-bottom:16px">Nuevo banner con imagen</h4>
+        <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">URL de la imagen</label>
+        <input class="inline-input" style="max-width:100%;margin-bottom:12px" id="bannerImgUrl" placeholder="https://i.imgur.com/ejemplo.jpg">
+        <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Título (opcional)</label>
+        <input class="inline-input" style="max-width:100%;margin-bottom:16px" id="bannerImgTitle" placeholder="Torneo de verano — 15 de Julio">
+        <button class="btn" onclick="addBanner()">+ Publicar banner</button>
+      </div>
+
+      <!-- Form aviso texto -->
+      <div class="evento-form" id="formBannerText" style="max-width:600px;margin-bottom:28px;display:none">
+        <h4 style="font-family:'Syne',sans-serif;color:var(--white);margin-bottom:16px">Nuevo aviso de texto</h4>
+        <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Título</label>
+        <input class="inline-input" style="max-width:100%;margin-bottom:12px" id="bannerTextTitle" placeholder="Mantenimiento programado">
+        <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Descripción</label>
+        <textarea class="inline-input" id="bannerTextDesc" rows="3" style="max-width:100%;resize:vertical;height:auto;margin-bottom:16px;padding-top:10px" placeholder="El servidor estará en mantenimiento el domingo de 2AM a 4AM."></textarea>
+        <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Color de acento</label>
+        <select class="inline-select" id="bannerTextColor" style="margin-bottom:16px">
+          <option value="purple">Morado</option>
+          <option value="green">Verde</option>
+          <option value="yellow">Amarillo</option>
+          <option value="blue">Azul</option>
+          <option value="red">Rojo</option>
+        </select>
+        <button class="btn" onclick="addBanner()">+ Publicar aviso</button>
+      </div>
+
+      <!-- Lista banners activos -->
+      <div id="adminBannerList" style="max-width:700px;display:grid;gap:10px"></div>
     </div>
 
   </div><!-- /dashContent -->

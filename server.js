@@ -1000,7 +1000,7 @@ app.get('/api/testimonios', async (req, res) => {
   catch { res.json([]); }
 });
 
-// ==================== NOTICIAS (ticker) ====================
+// ==================== BANNERS / NOTICIAS ====================
 app.get('/api/noticias', async (req, res) => {
   const raw = await db.getConfig('noticias');
   try { res.json(JSON.parse(raw || '[]')); }
@@ -1014,16 +1014,27 @@ app.get('/api/admin/noticias', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/noticias', requireAdmin, async (req, res) => {
-  const { text, type } = req.body;
-  if (!text) return res.status(400).json({ error: 'text requerido' });
+  const { btype, img_url, title, desc, color } = req.body;
+  // Soportar formato viejo (text/type) y nuevo (btype)
+  const tipo = btype || 'banner';
+  if (tipo === 'banner' && !img_url) return res.status(400).json({ error: 'img_url requerido' });
+  if (tipo === 'texto'  && !title)   return res.status(400).json({ error: 'title requerido' });
   const raw = await db.getConfig('noticias');
   let list = [];
   try { list = JSON.parse(raw || '[]'); } catch {}
-  const nueva = { id: Date.now(), text, type: type || 'info', created_at: new Date().toISOString() };
-  list.unshift(nueva); // más reciente primero
+  const nuevo = {
+    id: Date.now(),
+    btype: tipo,
+    img_url: img_url || null,
+    title:   title   || null,
+    desc:    desc    || null,
+    color:   color   || 'purple',
+    created_at: new Date().toISOString()
+  };
+  list.unshift(nuevo);
   await db.setConfig('noticias', JSON.stringify(list));
-  await db.log(req.session.user.id, req.session.user.username, 'add_noticia', text.slice(0, 40));
-  res.json({ ok: true, noticia: nueva });
+  await db.log(req.session.user.id, req.session.user.username, 'add_banner', (title || img_url || '').slice(0,40));
+  res.json({ ok: true, banner: nuevo });
 });
 
 app.delete('/api/admin/noticias/:id', requireAdmin, async (req, res) => {
@@ -1033,7 +1044,7 @@ app.delete('/api/admin/noticias/:id', requireAdmin, async (req, res) => {
   try { list = JSON.parse(raw || '[]'); } catch {}
   list = list.filter(n => n.id !== id);
   await db.setConfig('noticias', JSON.stringify(list));
-  await db.log(req.session.user.id, req.session.user.username, 'del_noticia', String(id));
+  await db.log(req.session.user.id, req.session.user.username, 'del_banner', String(id));
   res.json({ ok: true });
 });
 

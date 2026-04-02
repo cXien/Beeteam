@@ -1512,86 +1512,151 @@ async function deleteTestimonio(id) {
   } catch (e) { toast('Error al eliminar testimonio', 'error'); }
 }
 
+
 // ============================================================
-// TICKER DE NOTICIAS
+// BANNER SLIDER
 // ============================================================
+let bannerCurrent = 0;
+let bannerItems = [];
+let bannerAutoTimer = null;
+
 async function loadAndRenderTicker() {
+  await loadBannerSlider();
+}
+
+async function loadBannerSlider() {
   try {
-    const noticias = await api('/api/noticias');
-    if (!noticias.length) return;
-    const ticker = document.getElementById('newsTicker');
-    const track  = document.getElementById('tickerTrack');
-    if (!ticker || !track) return;
+    bannerItems = await api('/api/noticias');
+    if (!bannerItems.length) return;
+    const slider = document.getElementById('bannerSlider');
+    const track  = document.getElementById('bannerTrack');
+    const nav    = document.getElementById('bannerNav');
+    if (!slider || !track) return;
 
-    // Duplicar items para scroll infinito continuo
-    const items = [...noticias, ...noticias];
-    track.innerHTML = items.map(n => `
-      <div class="ticker-item ${esc(n.type || 'info')}">
-        <span class="ticker-dot"></span>
-        <span>${esc(n.text)}</span>
-      </div>`).join('');
+    track.innerHTML = bannerItems.map(b => {
+      if (b.btype === 'texto') {
+        return `<div class="banner-slide txt-type c-${esc(b.color||'purple')}">
+          <div class="banner-txt-title">${esc(b.title||'')}</div>
+          ${b.desc ? `<div class="banner-txt-desc">${esc(b.desc)}</div>` : ''}
+        </div>`;
+      }
+      return `<div class="banner-slide img-type">
+        <img src="${esc(b.img_url||'')}" alt="${esc(b.title||'')}" loading="lazy" onerror="this.parentElement.style.display='none'">
+        ${b.title ? `<div class="banner-caption">${esc(b.title)}</div>` : ''}
+      </div>`;
+    }).join('');
 
-    ticker.style.display = 'block';
+    if (nav) {
+      nav.innerHTML = bannerItems.map((_,i) =>
+        `<button class="banner-dot${i===0?' active':''}" onclick="bannerGoTo(${i})"></button>`
+      ).join('');
+    }
 
-    // Ajustar velocidad según cantidad de texto
-    const totalChars = noticias.reduce((acc, n) => acc + n.text.length, 0);
-    const duration = Math.max(15, Math.min(60, totalChars * 0.4));
-    track.style.animationDuration = duration + 's';
-  } catch (e) {
-    // Si falla, el ticker simplemente no aparece
-  }
+    slider.style.display = 'block';
+    bannerCurrent = 0;
+    bannerUpdatePos();
+    bannerStartAuto();
+  } catch (e) { /* slider no aparece si falla */ }
+}
+
+function bannerUpdatePos() {
+  const track = document.getElementById('bannerTrack');
+  if (track) track.style.transform = `translateX(-${bannerCurrent * 100}%)`;
+  document.querySelectorAll('.banner-dot').forEach((d,i) =>
+    d.classList.toggle('active', i === bannerCurrent));
+}
+
+function bannerGoTo(i) {
+  bannerCurrent = (i + bannerItems.length) % bannerItems.length;
+  bannerUpdatePos();
+  bannerStartAuto();
+}
+
+function bannerMove(dir) { bannerGoTo(bannerCurrent + dir); }
+
+function bannerStartAuto() {
+  clearInterval(bannerAutoTimer);
+  if (bannerItems.length < 2) return;
+  bannerAutoTimer = setInterval(() => bannerGoTo(bannerCurrent + 1), 5000);
 }
 
 // ============================================================
-// ADMIN — NOTICIAS
+// ADMIN — BANNERS
 // ============================================================
+let currentBannerType = 'banner';
+
+function setBannerType(type, btn) {
+  currentBannerType = type;
+  document.querySelectorAll('.banner-type-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('formBannerImg').style.display  = type === 'banner' ? '' : 'none';
+  document.getElementById('formBannerText').style.display = type === 'texto'  ? '' : 'none';
+}
+
 async function loadAdminNoticias() {
-  const list = document.getElementById('adminNoticiasList');
+  const list = document.getElementById('adminBannerList');
   if (!list) return;
   list.innerHTML = '<div style="color:var(--text-dim);padding:16px">Cargando...</div>';
   try {
     const items = await api('/api/admin/noticias');
     if (!items.length) {
-      list.innerHTML = '<p style="color:var(--text-dim);padding:8px">No hay anuncios activos. Crea el primero arriba.</p>';
+      list.innerHTML = '<p style="color:var(--text-dim);padding:8px">No hay banners activos.</p>';
       return;
     }
-    const typeLabel = { info: 'ℹ️ Info', evento: '🎉 Evento', alerta: '⚠️ Alerta', update: '🔧 Update' };
-    list.innerHTML = items.map(n => `
-      <div class="admin-ticket-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+    list.innerHTML = items.map(n => {
+      const label = n.btype === 'texto' ? 'Texto' : 'Imagen';
+      const preview = n.btype === 'texto'
+        ? `<span style="font-size:0.88rem;color:var(--text)">${esc(n.title||'')} — ${esc((n.desc||'').slice(0,60))}${(n.desc||'').length>60?'…':''}</span>`
+        : `<span style="font-size:0.88rem;color:var(--text-dim)">${esc((n.img_url||'').slice(0,50))}${(n.img_url||'').length>50?'…':''}</span>`;
+      return `<div class="admin-ticket-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
         <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-          <span class="admin-badge">${typeLabel[n.type] || n.type}</span>
-          <span style="font-size:0.88rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n.text)}</span>
+          <span class="admin-badge">${label}</span>
+          ${preview}
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           <span style="font-size:0.72rem;color:var(--text-dim)">${fmtDate(n.created_at)}</span>
-          <button class="admin-action-btn del" onclick="deleteNoticia(${n.id})">✕</button>
+          <button class="admin-action-btn del" onclick="deleteBanner(${n.id})">✕</button>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } catch (e) { list.innerHTML = `<p style="color:var(--accent);padding:8px">Error: ${esc(e.message)}</p>`; }
 }
 
-async function addNoticia() {
-  const text = document.getElementById('newNoticeText')?.value.trim();
-  const type = document.getElementById('newNoticeType')?.value;
-  if (!text) { toast('Escribe el texto del anuncio', 'error'); return; }
+async function addBanner() {
+  let payload;
+  if (currentBannerType === 'banner') {
+    const img_url = document.getElementById('bannerImgUrl')?.value.trim();
+    const title   = document.getElementById('bannerImgTitle')?.value.trim();
+    if (!img_url) { toast('Ingresa la URL de la imagen', 'error'); return; }
+    payload = { btype: 'banner', img_url, title };
+  } else {
+    const title = document.getElementById('bannerTextTitle')?.value.trim();
+    const desc  = document.getElementById('bannerTextDesc')?.value.trim();
+    const color = document.getElementById('bannerTextColor')?.value;
+    if (!title) { toast('Escribe el título del aviso', 'error'); return; }
+    payload = { btype: 'texto', title, desc, color };
+  }
   try {
-    await api('/api/admin/noticias', { method: 'POST', body: JSON.stringify({ text, type }) });
-    toast('Anuncio publicado', 'ok');
-    document.getElementById('newNoticeText').value = '';
+    await api('/api/admin/noticias', { method: 'POST', body: JSON.stringify(payload) });
+    toast('Banner publicado', 'ok');
+    ['bannerImgUrl','bannerImgTitle','bannerTextTitle','bannerTextDesc'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
     loadAdminNoticias();
-    loadAndRenderTicker(); // actualizar ticker en vivo
-  } catch (e) { toast('Error al publicar anuncio', 'error'); }
+    loadBannerSlider();
+  } catch (e) { toast('Error al publicar banner', 'error'); }
 }
 
-async function deleteNoticia(id) {
-  if (!confirm('¿Eliminar este anuncio?')) return;
+async function deleteBanner(id) {
+  if (!confirm('¿Eliminar este banner?')) return;
   try {
     await api(`/api/admin/noticias/${id}`, { method: 'DELETE' });
-    toast('Anuncio eliminado', 'ok');
+    toast('Banner eliminado', 'ok');
     loadAdminNoticias();
-    loadAndRenderTicker();
-  } catch (e) { toast('Error al eliminar anuncio', 'error'); }
+    loadBannerSlider();
+  } catch (e) { toast('Error al eliminar banner', 'error'); }
 }
+
 
 // ============================================================
 // KONAMI CODE EASTER EGG
