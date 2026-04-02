@@ -129,11 +129,12 @@ function toast(msg, type) {
 // ============================================================
 // SCROLL REVEAL
 // ============================================================
+let observer;
 function initScrollReveal() {
-  const obs = new IntersectionObserver(entries => {
+  observer = new IntersectionObserver(entries => {
     entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
   }, { threshold: 0.07 });
-  document.querySelectorAll('.reveal:not(.visible)').forEach(el => obs.observe(el));
+  document.querySelectorAll('.reveal:not(.visible)').forEach(el => observer.observe(el));
 }
 
 // ============================================================
@@ -1553,7 +1554,16 @@ async function loadAnuncios() {
 
     section.style.display = 'block';
     // activar reveal en las nuevas cards
-    section.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    section.querySelectorAll('.reveal').forEach(el => {
+      const rect = el.getBoundingClientRect();
+      if (rect.top < window.innerHeight) {
+        el.classList.add('visible');
+      } else if (observer) {
+        observer.observe(el);
+      } else {
+        el.classList.add('visible');
+      }
+    });
   } catch (e) { /* si falla, la sección no aparece */ }
 }
 
