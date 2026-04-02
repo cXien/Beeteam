@@ -1014,21 +1014,22 @@ app.get('/api/admin/noticias', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/noticias', requireAdmin, async (req, res) => {
-  const { btype, img_url, title, desc, color } = req.body;
-  // Soportar formato viejo (text/type) y nuevo (btype)
+  const { btype, img_url, img_data, title, desc, color, link } = req.body;
   const tipo = btype || 'banner';
-  if (tipo === 'banner' && !img_url) return res.status(400).json({ error: 'img_url requerido' });
-  if (tipo === 'texto'  && !title)   return res.status(400).json({ error: 'title requerido' });
+  const finalImg = img_data || img_url || null;
+  if (tipo === 'banner' && !finalImg) return res.status(400).json({ error: 'img_url o img_data requerido' });
+  if (tipo === 'texto'  && !title)    return res.status(400).json({ error: 'title requerido' });
   const raw = await db.getConfig('noticias');
   let list = [];
   try { list = JSON.parse(raw || '[]'); } catch {}
   const nuevo = {
     id: Date.now(),
     btype: tipo,
-    img_url: img_url || null,
+    img_url: finalImg,
     title:   title   || null,
     desc:    desc    || null,
     color:   color   || 'purple',
+    link:    link    || null,
     created_at: new Date().toISOString()
   };
   list.unshift(nuevo);

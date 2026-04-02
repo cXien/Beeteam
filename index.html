@@ -100,11 +100,16 @@
 
 <!-- ANUNCIOS -->
 <section id="anuncios" style="display:none; padding:60px 0">
-  <div class="section-header reveal">
+  <div class="section-header reveal" style="padding:0 5vw">
     <div class="section-label">Comunidad</div>
     <h2 class="section-title">Anuncios <span>&amp; Noticias</span></h2>
   </div>
-  <div class="anuncios-grid" id="anunciosGrid"></div>
+  <div class="anuncios-slider-wrap">
+    <div class="anuncios-track" id="anunciosGrid"></div>
+    <button class="anuncios-arrow anuncios-prev" id="anuPrev" aria-label="Anterior">&#8249;</button>
+    <button class="anuncios-arrow anuncios-next" id="anuNext" aria-label="Siguiente">&#8250;</button>
+    <div class="anuncios-dots" id="anuDots"></div>
+  </div>
 </section>
 
 <div class="divider"></div>
@@ -569,10 +574,26 @@
       <!-- Form banner imagen -->
       <div class="evento-form" id="formBannerImg" style="max-width:600px;margin-bottom:28px">
         <h4 style="font-family:'Syne',sans-serif;color:var(--white);margin-bottom:16px">Nuevo banner con imagen</h4>
-        <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">URL de la imagen</label>
-        <input class="inline-input" style="max-width:100%;margin-bottom:12px" id="bannerImgUrl" placeholder="https://i.imgur.com/ejemplo.jpg">
+
+        <!-- Upload o URL -->
+        <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Subir imagen</label>
+        <label class="banner-upload-zone" id="bannerUploadZone" for="bannerImgFile">
+          <span id="bannerUploadLabel">📁 Haz clic o arrastra una imagen aquí</span>
+          <input type="file" id="bannerImgFile" accept="image/*" style="display:none" onchange="onBannerFileChange(this)">
+        </label>
+        <div style="text-align:center;font-size:0.75rem;color:var(--text-dim);margin:8px 0">— o pega una URL —</div>
+        <input class="inline-input" style="max-width:100%;margin-bottom:8px" id="bannerImgUrl" placeholder="https://i.imgur.com/ejemplo.jpg" oninput="onBannerUrlInput(this.value)">
+
+        <!-- Preview -->
+        <div id="bannerImgPreview" style="display:none;margin-bottom:16px;border-radius:10px;overflow:hidden;height:160px;position:relative;border:1px solid var(--border)">
+          <img id="bannerImgPreviewImg" style="width:100%;height:100%;object-fit:cover" src="" alt="preview">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(168,85,247,0.45),rgba(9,7,15,0.6));mix-blend-mode:multiply;pointer-events:none"></div>
+        </div>
+
         <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Título (opcional)</label>
-        <input class="inline-input" style="max-width:100%;margin-bottom:16px" id="bannerImgTitle" placeholder="Torneo de verano — 15 de Julio">
+        <input class="inline-input" style="max-width:100%;margin-bottom:12px" id="bannerImgTitle" placeholder="Torneo de verano — 15 de Julio">
+        <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Link al hacer clic (opcional)</label>
+        <input class="inline-input" style="max-width:100%;margin-bottom:16px" id="bannerImgLink" placeholder="https://discord.gg/tu-servidor">
         <button class="btn" onclick="addBanner()">+ Publicar banner</button>
       </div>
 
@@ -583,6 +604,8 @@
         <input class="inline-input" style="max-width:100%;margin-bottom:12px" id="bannerTextTitle" placeholder="Mantenimiento programado">
         <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Descripción</label>
         <textarea class="inline-input" id="bannerTextDesc" rows="3" style="max-width:100%;resize:vertical;height:auto;margin-bottom:16px;padding-top:10px" placeholder="El servidor estará en mantenimiento el domingo de 2AM a 4AM."></textarea>
+        <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Link al hacer clic (opcional)</label>
+        <input class="inline-input" style="max-width:100%;margin-bottom:12px" id="bannerTextLink" placeholder="https://discord.gg/tu-servidor">
         <label style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:6px">Color de acento</label>
         <select class="inline-select" id="bannerTextColor" style="margin-bottom:16px">
           <option value="purple">Morado</option>

@@ -129,11 +129,12 @@ function toast(msg, type) {
 // ============================================================
 // SCROLL REVEAL
 // ============================================================
+let observer;
 function initScrollReveal() {
-  const obs = new IntersectionObserver(entries => {
+  observer = new IntersectionObserver(entries => {
     entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
   }, { threshold: 0.07 });
-  document.querySelectorAll('.reveal:not(.visible)').forEach(el => obs.observe(el));
+  document.querySelectorAll('.reveal:not(.visible)').forEach(el => observer.observe(el));
 }
 
 // ============================================================
@@ -1529,31 +1530,89 @@ async function loadAnuncios() {
   try {
     const items = await api('/api/noticias');
     const section = document.getElementById('anuncios');
-    const grid    = document.getElementById('anunciosGrid');
-    if (!section || !grid) return;
+    const track   = document.getElementById('anunciosGrid');
+    const dotsEl  = document.getElementById('anuDots');
+    const prevBtn = document.getElementById('anuPrev');
+    const nextBtn = document.getElementById('anuNext');
+    if (!section || !track) return;
     if (!items.length) { section.style.display = 'none'; return; }
 
-    grid.innerHTML = items.map(b => {
+    // Renderizar slides
+    track.innerHTML = items.map(b => {
       const fecha = b.created_at ? fmtDate(b.created_at) : '';
+      const linkAttr = b.link ? `onclick="window.open('${esc(b.link)}','_blank')"` : '';
+      const hasLink  = b.link ? ' has-link' : '';
+      const linkBtn  = b.link ? `<div class="anuncio-link-badge">Ver más →</div>` : '';
       if (b.btype === 'texto') {
-        return `<div class="anuncio-card txt-type c-${esc(b.color||'purple')} reveal">
+        const colorMap = { purple:'Anuncio', green:'Novedad', yellow:'Aviso', blue:'Info', red:'Urgente' };
+        const badge = colorMap[b.color||'purple'] || 'Anuncio';
+        return `<div class="anuncio-card txt-type c-${esc(b.color||'purple')}${hasLink}" ${linkAttr}>
+          <div class="anuncio-badge">${badge}</div>
           <div class="anuncio-title">${esc(b.title||'')}</div>
           ${b.desc ? `<div class="anuncio-desc">${esc(b.desc)}</div>` : ''}
           <div class="anuncio-date">${fecha}</div>
+          ${linkBtn}
         </div>`;
       }
-      return `<div class="anuncio-card img-type reveal">
-        <img class="anuncio-img" src="${esc(b.img_url||'')}" alt="${esc(b.title||'')}" loading="lazy" onerror="this.closest('.anuncio-card').style.display='none'">
+      return `<div class="anuncio-card img-type${hasLink}" ${linkAttr}>
+        <img class="anuncio-img" src="${esc(b.img_url||'')}" alt="${esc(b.title||'')}" loading="lazy" onerror="this.closest('.anuncio-card').style.background='var(--bg2)'">
         <div class="anuncio-body">
           ${b.title ? `<div class="anuncio-title">${esc(b.title)}</div>` : ''}
           <div class="anuncio-date">${fecha}</div>
+          ${linkBtn}
         </div>
       </div>`;
     }).join('');
 
+    // Dots
+    if (dotsEl) {
+      dotsEl.innerHTML = items.map((_, i) =>
+        `<button class="anu-dot${i===0?' active':''}" data-i="${i}" aria-label="Slide ${i+1}"></button>`
+      ).join('');
+    }
+
     section.style.display = 'block';
-    // activar reveal en las nuevas cards
-    section.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    // Activar sección header reveal
+    section.querySelectorAll('.reveal').forEach(el => {
+      const rect = el.getBoundingClientRect();
+      if (rect.top < window.innerHeight) el.classList.add('visible');
+      else if (observer) observer.observe(el);
+      else el.classList.add('visible');
+    });
+
+    // Slider logic
+    let current = 0;
+    let autoTimer;
+    const total = items.length;
+
+    function goTo(idx) {
+      current = (idx + total) % total;
+      track.style.transform = `translateX(-${current * 100}%)`;
+      dotsEl && dotsEl.querySelectorAll('.anu-dot').forEach((d, i) => d.classList.toggle('active', i === current));
+      if (prevBtn) prevBtn.disabled = false;
+      if (nextBtn) nextBtn.disabled = false;
+    }
+
+    function startAuto() {
+      clearInterval(autoTimer);
+      if (total > 1) autoTimer = setInterval(() => goTo(current + 1), 5000);
+    }
+
+    if (prevBtn) prevBtn.onclick = () => { goTo(current - 1); startAuto(); };
+    if (nextBtn) nextBtn.onclick = () => { goTo(current + 1); startAuto(); };
+    if (dotsEl)  dotsEl.onclick  = e => {
+      const dot = e.target.closest('.anu-dot');
+      if (dot) { goTo(+dot.dataset.i); startAuto(); }
+    };
+
+    // Ocultar flechas si solo hay 1 slide
+    if (prevBtn) prevBtn.style.display = total > 1 ? '' : 'none';
+    if (nextBtn) nextBtn.style.display = total > 1 ? '' : 'none';
+    if (dotsEl)  dotsEl.style.display  = total > 1 ? '' : 'none';
+
+    goTo(0);
+    startAuto();
   } catch (e) { /* si falla, la sección no aparece */ }
 }
 
@@ -1562,6 +1621,7 @@ async function loadAnuncios() {
 // ADMIN — BANNERS
 // ============================================================
 let currentBannerType = 'banner';
+let bannerImgBase64 = null;
 
 function setBannerType(type, btn) {
   currentBannerType = type;
@@ -1569,6 +1629,81 @@ function setBannerType(type, btn) {
   if (btn) btn.classList.add('active');
   document.getElementById('formBannerImg').style.display  = type === 'banner' ? '' : 'none';
   document.getElementById('formBannerText').style.display = type === 'texto'  ? '' : 'none';
+}
+
+function showBannerPreview(src) {
+  const wrap = document.getElementById('bannerImgPreview');
+  const img  = document.getElementById('bannerImgPreviewImg');
+  if (!wrap || !img) return;
+  if (src) { img.src = src; wrap.style.display = ''; }
+  else     { wrap.style.display = 'none'; }
+}
+
+function onBannerFileChange(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const label = document.getElementById('bannerUploadLabel');
+  if (label) label.textContent = '✓ ' + file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    bannerImgBase64 = e.target.result;
+    document.getElementById('bannerImgUrl').value = '';
+    showBannerPreview(bannerImgBase64);
+  };
+  reader.readAsDataURL(file);
+}
+
+function onBannerUrlInput(val) {
+  bannerImgBase64 = null;
+  const label = document.getElementById('bannerUploadLabel');
+  if (label) label.textContent = '📁 Haz clic o arrastra una imagen aquí';
+  const fileInput = document.getElementById('bannerImgFile');
+  if (fileInput) fileInput.value = '';
+  showBannerPreview(val.trim() || null);
+}
+
+async function addBanner() {
+  let payload;
+  if (currentBannerType === 'banner') {
+    const img_url = document.getElementById('bannerImgUrl')?.value.trim();
+    const title   = document.getElementById('bannerImgTitle')?.value.trim();
+    const link    = document.getElementById('bannerImgLink')?.value.trim();
+    const finalImg = bannerImgBase64 || img_url;
+    if (!finalImg) { toast('Sube una imagen o ingresa una URL', 'error'); return; }
+    payload = { btype: 'banner', img_data: bannerImgBase64 || null, img_url: bannerImgBase64 ? null : img_url, title, link };
+  } else {
+    const title = document.getElementById('bannerTextTitle')?.value.trim();
+    const desc  = document.getElementById('bannerTextDesc')?.value.trim();
+    const color = document.getElementById('bannerTextColor')?.value;
+    const link  = document.getElementById('bannerTextLink')?.value.trim();
+    if (!title) { toast('Escribe el título del aviso', 'error'); return; }
+    payload = { btype: 'texto', title, desc, color, link };
+  }
+  try {
+    await api('/api/admin/noticias', { method: 'POST', body: JSON.stringify(payload) });
+    toast('Banner publicado', 'ok');
+    bannerImgBase64 = null;
+    ['bannerImgUrl','bannerImgTitle','bannerTextTitle','bannerTextDesc','bannerImgLink','bannerTextLink'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    const lbl = document.getElementById('bannerUploadLabel');
+    if (lbl) lbl.textContent = '📁 Haz clic o arrastra una imagen aquí';
+    const fi = document.getElementById('bannerImgFile');
+    if (fi) fi.value = '';
+    showBannerPreview(null);
+    loadAdminNoticias();
+    loadBannerSlider();
+  } catch (e) { toast('Error al publicar banner', 'error'); }
+}
+
+async function deleteBanner(id) {
+  if (!confirm('¿Eliminar este banner?')) return;
+  try {
+    await api(`/api/admin/noticias/${id}`, { method: 'DELETE' });
+    toast('Banner eliminado', 'ok');
+    loadAdminNoticias();
+    loadBannerSlider();
+  } catch (e) { toast('Error al eliminar banner', 'error'); }
 }
 
 async function loadAdminNoticias() {
@@ -1583,13 +1718,15 @@ async function loadAdminNoticias() {
     }
     list.innerHTML = items.map(n => {
       const label = n.btype === 'texto' ? 'Texto' : 'Imagen';
+      const isBase64 = n.img_url && n.img_url.startsWith('data:');
       const preview = n.btype === 'texto'
         ? `<span style="font-size:0.88rem;color:var(--text)">${esc(n.title||'')} — ${esc((n.desc||'').slice(0,60))}${(n.desc||'').length>60?'…':''}</span>`
-        : `<span style="font-size:0.88rem;color:var(--text-dim)">${esc((n.img_url||'').slice(0,50))}${(n.img_url||'').length>50?'…':''}</span>`;
+        : `<span style="font-size:0.88rem;color:var(--text-dim)">${isBase64 ? '📷 Imagen subida' : esc((n.img_url||'').slice(0,50)) + ((n.img_url||'').length>50?'…':'')}</span>`;
+      const linkBadge = n.link ? `<span style="font-size:0.7rem;color:var(--accent);margin-left:6px">🔗 link</span>` : '';
       return `<div class="admin-ticket-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
         <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
           <span class="admin-badge">${label}</span>
-          ${preview}
+          ${preview}${linkBadge}
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           <span style="font-size:0.72rem;color:var(--text-dim)">${fmtDate(n.created_at)}</span>
@@ -1598,41 +1735,6 @@ async function loadAdminNoticias() {
       </div>`;
     }).join('');
   } catch (e) { list.innerHTML = `<p style="color:var(--accent);padding:8px">Error: ${esc(e.message)}</p>`; }
-}
-
-async function addBanner() {
-  let payload;
-  if (currentBannerType === 'banner') {
-    const img_url = document.getElementById('bannerImgUrl')?.value.trim();
-    const title   = document.getElementById('bannerImgTitle')?.value.trim();
-    if (!img_url) { toast('Ingresa la URL de la imagen', 'error'); return; }
-    payload = { btype: 'banner', img_url, title };
-  } else {
-    const title = document.getElementById('bannerTextTitle')?.value.trim();
-    const desc  = document.getElementById('bannerTextDesc')?.value.trim();
-    const color = document.getElementById('bannerTextColor')?.value;
-    if (!title) { toast('Escribe el título del aviso', 'error'); return; }
-    payload = { btype: 'texto', title, desc, color };
-  }
-  try {
-    await api('/api/admin/noticias', { method: 'POST', body: JSON.stringify(payload) });
-    toast('Banner publicado', 'ok');
-    ['bannerImgUrl','bannerImgTitle','bannerTextTitle','bannerTextDesc'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.value = '';
-    });
-    loadAdminNoticias();
-    loadBannerSlider();
-  } catch (e) { toast('Error al publicar banner', 'error'); }
-}
-
-async function deleteBanner(id) {
-  if (!confirm('¿Eliminar este banner?')) return;
-  try {
-    await api(`/api/admin/noticias/${id}`, { method: 'DELETE' });
-    toast('Banner eliminado', 'ok');
-    loadAdminNoticias();
-    loadBannerSlider();
-  } catch (e) { toast('Error al eliminar banner', 'error'); }
 }
 
 
