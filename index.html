@@ -76,8 +76,23 @@
       beeteam.club
       <div class="ip-copy-toast">Copiado!</div>
     </div>
+    <button class="nav-hamburger" id="navHamburger" onclick="toggleMobileMenu()" aria-label="Menú">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </nav>
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu" id="mobileMenu">
+  <ul>
+    <li><a href="#hero"      onclick="closeMobileMenu()">Inicio</a></li>
+    <li><a href="#tienda"    onclick="closeMobileMenu()">Tienda</a></li>
+    <li><a href="#team"      onclick="closeMobileMenu()">Equipo</a></li>
+    <li><a href="#comunidad" onclick="closeMobileMenu()">Comunidad</a></li>
+    <li><a href="#pics"      onclick="closeMobileMenu()">Galería</a></li>
+    <li><a href="#soporte"   onclick="closeMobileMenu()">Soporte</a></li>
+  </ul>
+</div>
 
 <!-- HERO -->
 <section id="hero">

@@ -1764,3 +1764,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadAndRenderTicker();
   initScrollReveal();
 });
+
+// ============================================================
+// MOBILE MENU
+// ============================================================
+function toggleMobileMenu() {
+  const menu = document.getElementById('mobileMenu');
+  const btn  = document.getElementById('navHamburger');
+  if (!menu) return;
+  const open = menu.classList.toggle('open');
+  if (btn) btn.classList.toggle('open', open);
+  document.body.style.overflow = open ? 'hidden' : '';
+}
+function closeMobileMenu() {
+  const menu = document.getElementById('mobileMenu');
+  const btn  = document.getElementById('navHamburger');
+  if (menu) menu.classList.remove('open');
+  if (btn)  btn.classList.remove('open');
+  document.body.style.overflow = '';
+}

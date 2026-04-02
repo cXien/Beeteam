@@ -537,6 +537,7 @@ body.modal-open { overflow: hidden; }
 /* ==================== RESPONSIVE ==================== */
 @media(max-width:900px) {
   .nav-links { display: none; }
+  .nav-hamburger { display: flex; }
   .add-member-grid { grid-template-columns: 1fr 1fr; }
   .form-row { grid-template-columns: 1fr; }
   .footer-top { flex-direction: column; }
@@ -550,17 +551,98 @@ body.modal-open { overflow: hidden; }
   .countdown-num { font-size: 2rem; }
   .chat-login-wall { padding: 32px 24px; }
   .chat-box { height: 320px; }
+  /* Slider más compacto en tablet */
+  .anuncio-card { min-height: 320px; }
 }
+
 @media(max-width:600px) {
-  .hero-stats { gap: 28px; }
-  .countdown-grid { gap: 10px; }
+  /* Nav */
+  .user-nav-name { display: none; }
   .nav-ip span:not(.ip-copy-toast) { display: none; }
+  .nav-dash-btn { font-size: 0.75rem; padding: 7px 10px; }
   #dashPanel { width: 100vw !important; }
+
+  /* Hero */
+  .hero-stats { gap: 24px; margin-top: 48px; }
+  .hero-ctas { flex-direction: column; align-items: center; }
+  .hero-ctas .btn-primary, .hero-ctas .btn-outline { width: 100%; max-width: 280px; justify-content: center; }
+
+  /* Slider mobile: altura adaptada */
+  .anuncio-card { min-height: 280px; }
+  .anuncio-card.txt-type { padding: 40px 6vw 64px; }
+  .anuncio-card.img-type .anuncio-body { padding: 24px 6vw 56px; }
+  .anuncio-card.img-type .anuncio-title { font-size: 1.3rem; }
+  .anuncio-card.txt-type .anuncio-title { font-size: 1.6rem; }
+  .anuncios-arrow { width: 36px; height: 36px; font-size: 1.3rem; }
+
+  /* Secciones */
+  section { padding: 64px 5vw; }
+  .section-title { font-size: clamp(1.8rem, 7vw, 2.4rem); }
+  .rank-card { padding: 24px 20px; }
+  .rank-perks { font-size: 0.82rem; }
+  .member-card { padding: 20px 16px; }
+  .countdown-grid { gap: 10px; }
   .chat-box { height: 300px; }
   .ticket-form .form-row { flex-direction: column; }
   .ticket-form .form-group { width: 100%; }
+
+  /* Footer */
+  .footer-top { gap: 32px; }
+  .footer-links-group { min-width: 0; }
 }
-/* ==================== SECCIÓN ANUNCIOS — SLIDER ==================== */
+
+@media(max-width:400px) {
+  .anuncio-card { min-height: 240px; }
+  .hero-stats { flex-direction: column; gap: 16px; }
+  .stat-num { font-size: 1.6rem; }
+}
+/* ==================== HAMBURGER & MOBILE MENU ==================== */
+.nav-hamburger {
+  display: none;
+  flex-direction: column; justify-content: center; align-items: center;
+  gap: 5px; width: 36px; height: 36px;
+  background: none; border: none; cursor: pointer; padding: 4px;
+}
+.nav-hamburger span {
+  display: block; width: 22px; height: 2px;
+  background: var(--white); border-radius: 2px;
+  transition: transform .3s, opacity .3s, width .3s;
+  transform-origin: center;
+}
+.nav-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-hamburger.open span:nth-child(2) { opacity: 0; width: 0; }
+.nav-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+.mobile-menu {
+  display: none;
+  position: fixed; top: 72px; left: 0; right: 0; bottom: 0;
+  background: rgba(9,7,15,0.97);
+  backdrop-filter: blur(20px);
+  z-index: 998;
+  padding: 32px 5vw;
+  flex-direction: column;
+  transform: translateY(-8px);
+  opacity: 0;
+  transition: opacity .25s, transform .25s;
+  pointer-events: none;
+}
+.mobile-menu.open {
+  display: flex;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+.mobile-menu ul { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.mobile-menu a {
+  display: block; padding: 16px 0;
+  font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 700;
+  color: var(--text-dim); text-decoration: none;
+  border-bottom: 1px solid var(--border);
+  transition: color .2s;
+}
+.mobile-menu a:hover { color: var(--white); }
+
+
 #anuncios { padding: 60px 0; }
 
 .anuncios-slider-wrap {
@@ -585,7 +667,7 @@ body.modal-open { overflow: hidden; }
 .anuncio-card {
   flex: 0 0 100%;
   width: 100%;
-  min-height: 360px;
+  min-height: 480px;
   position: relative;
   overflow: hidden;
   cursor: default;
