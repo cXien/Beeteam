@@ -14,12 +14,15 @@
 .dashboard-header h3 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.15rem; color: var(--white); }
 .dashboard-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 .dash-tab {
-  padding: 7px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600;
+  padding: 6px 11px; border-radius: 8px; font-size: 0.75rem; font-weight: 600;
   color: var(--text-dim); cursor: pointer; border: 1px solid transparent;
   background: none; transition: background .2s, color .2s, border-color .2s;
-  font-family: 'DM Sans', sans-serif; white-space: nowrap;
+  font-family: 'DM Sans', sans-serif; white-space: nowrap; flex-shrink: 0;
 }
 .dash-tab.active, .dash-tab:hover { background: rgba(168,85,247,0.12); color: var(--accent); border-color: var(--border); }
+#adminTabNav::-webkit-scrollbar { height: 4px; }
+#adminTabNav::-webkit-scrollbar-track { background: transparent; }
+#adminTabNav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .dash-panel { display: none; padding: 28px; }
 .dash-panel.active { display: block; }
 .dash-desc { color: var(--text-dim); font-size: 0.88rem; margin-bottom: 24px; line-height: 1.6; }
